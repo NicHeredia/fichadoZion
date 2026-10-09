@@ -23,7 +23,7 @@ function Workspace({ session, logout }: { session: Session; logout: () => Promis
     await refresh();
   }
   if (!query.data) return <main className="connected" role={query.isError ? "alert" : "status"}>
-    <h1>{query.isError ? "No se pudo abrir el panel" : "Cargando HoraClara…"}</h1>
+    <h1>{query.isError ? "No se pudo abrir el panel" : "Cargando Fichado Zion ortopedia…"}</h1>
     {query.isError && <><p>{query.error instanceof Error ? query.error.message : "Revisá la conexión."}</p><button className="btn btn-primary" onClick={() => void refresh()}>Reintentar</button> <button className="btn btn-secondary" onClick={() => void logout().catch(() => {})}>Cerrar sesión</button></>}
   </main>;
   const data = query.data as RemoteData;
@@ -100,7 +100,7 @@ export default function ConnectedApp() {
   if (configurationError || !supabase) return <main className="connected"><h1>Configuración de Supabase pendiente</h1><p>{configurationError || "Revisá las variables de conexión."}</p><p>Consultá SUPABASE_SETUP.md en el proyecto.</p></main>;
   if (loading) return <main className="connected" role="status">Cargando sesión…</main>;
   if (session) return <><Workspace key={session.user.id} session={session} logout={logout} />{error && <p className="auth-error error-banner" role="alert">{error}</p>}</>;
-  return <main className="connected"><div className="page-title"><div><h1>HoraClara</h1><p>Ingresá o creá tu cuenta para acceder a tu panel</p></div></div>
+  return <main className="connected"><div className="page-title"><div><h1>Fichado Zion ortopedia</h1><p>Ingresá o creá tu cuenta para acceder a tu panel</p></div></div>
     {error && <p className="error-banner" role="alert">{error}</p>}
     <AuthForm onAuthenticated={authenticated} />
   </main>;

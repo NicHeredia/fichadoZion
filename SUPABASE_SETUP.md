@@ -1,4 +1,4 @@
-# Conectar y habilitar el panel de HoraClara
+# Conectar y habilitar el panel de Fichado Zion ortopedia
 
 ## Si tu conexión ya funciona
 

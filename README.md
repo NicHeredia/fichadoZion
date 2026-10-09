@@ -1,4 +1,4 @@
-# HoraClara
+# Fichado Zion ortopedia
 
 Sistema de horas extras con React, TypeScript, Vite y Supabase.
 

@@ -57,7 +57,7 @@ export default function AuthForm({ onAuthenticated }: { onAuthenticated: (sessio
     finally { lock.current = false; setBusy(false); }
   }
   return <section className="card connected-form">
-    <div className="auth-switch" aria-label="Acceso a HoraClara"><button type="button" aria-pressed={mode === "login"} disabled={busy} className={mode === "login" ? "active" : ""} onClick={() => changeMode("login")}>Iniciar sesión</button><button type="button" aria-pressed={mode === "signup"} disabled={busy} className={mode === "signup" ? "active" : ""} onClick={() => changeMode("signup")}>Crear cuenta</button></div>
+    <div className="auth-switch" aria-label="Acceso a Fichado Zion ortopedia"><button type="button" aria-pressed={mode === "login"} disabled={busy} className={mode === "login" ? "active" : ""} onClick={() => changeMode("login")}>Iniciar sesión</button><button type="button" aria-pressed={mode === "signup"} disabled={busy} className={mode === "signup" ? "active" : ""} onClick={() => changeMode("signup")}>Crear cuenta</button></div>
     <h2>{mode === "signup" ? "Creá tu cuenta" : "Iniciar sesión"}</h2>
     <p>{mode === "signup" ? "Completá tus datos para empezar a registrar tus horas." : "Ingresá con tu correo y contraseña."}</p>
     {error && <p className="error-banner" role="alert">{error}</p>}

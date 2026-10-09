@@ -42,10 +42,10 @@ export function AppShell() {
       <aside className={open ? "sidebar sidebar-open" : "sidebar"}>
         <div className="brand">
           <div className="brand-mark"><Clock3 size={21} /></div>
-          <div><strong>HoraClara</strong><small>Control de horas extras</small></div>
+          <div><strong>Fichado Zion ortopedia</strong><small>Control de horas extras</small></div>
           <button className="icon-button sidebar-close" onClick={() => setOpen(false)} aria-label="Cerrar menú"><X size={19} /></button>
         </div>
-        <div className="workspace"><span>ORGANIZACIÓN</span><div className="workspace-row"><div className="mini-logo">NS</div><div><b>{remote ? "HoraClara" : "Nova Servicios"}</b><small>{admin ? "Administración" : "Mi panel"}</small></div></div></div>
+        <div className="workspace"><span>ORGANIZACIÓN</span><div className="workspace-row"><div className="mini-logo">ZO</div><div><b>Zion ortopedia</b><small>{admin ? "Administración" : "Mi panel"}</small></div></div></div>
         <nav>
           {visibleNav.map(({ label, path, icon: Icon }) => (
             <NavLink to={path} end={path === "/"} onClick={() => setOpen(false)} key={path} className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>

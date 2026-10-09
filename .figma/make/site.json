@@ -1,10 +1,12 @@
 {
-  "description": "Efficiently manage and track employee overtime with a user-friendly web application that allows secure logging, approval processes, and detailed reporting.",
+  "description": "Registro de fichajes y gestión de horas extras de Zion ortopedia.",
   "robots": {
     "index": false
   },
   "accessibility": {
     "addBypassLinks": false,
     "ignoreReducedMotion": false
-  }
+  },
+  "title": "Fichado Zion ortopedia",
+  "language": "es"
 }
