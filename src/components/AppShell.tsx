@@ -10,10 +10,12 @@ import {
 const nav = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
   { label: "Registrar fichaje", path: "/registrar", icon: Clock3 },
+  { label: "Fichaje manual", path: "/fichaje-manual", icon: Clock3 },
   { label: "Empleados", path: "/empleados", icon: Users },
   { label: "Historial", path: "/historial", icon: History },
   { label: "Revisiones", path: "/revisiones", icon: ShieldCheck },
   { label: "Reportes", path: "/reportes", icon: FileBarChart },
+  { label: "Compensaciones", path: "/compensaciones", icon: CalendarCheck },
   { label: "Cierre mensual", path: "/cierre", icon: CalendarCheck },
   { label: "Instituciones", path: "/instituciones", icon: Building2 },
   { label: "Auditoría", path: "/auditoria", icon: ShieldCheck },
@@ -24,7 +26,7 @@ export function AppShell() {
   const records = useAppRecords();
   const remote = useRemoteData();
   const admin = !remote || remote.profile.role === "admin";
-  const visibleNav = nav.filter(item => (admin || ["/", "/registrar", "/historial", "/reportes"].includes(item.path)) && (item.path !== "/auditoria" || !!remote));
+  const visibleNav = nav.filter(item => (admin || ["/", "/registrar", "/historial", "/reportes", "/compensaciones"].includes(item.path)) && (!["/auditoria", "/compensaciones", "/fichaje-manual"].includes(item.path) || !!remote));
   const name = remote?.profile.name || "Mariana Gómez";
   const initials = name.split(" ").map(part => part[0]).slice(0,2).join("").toUpperCase();
   const [sessionError, setSessionError] = useState("");

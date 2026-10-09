@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "format": "oxfmt",
     "typecheck": "tsc --noEmit",
-    "test": "node tests/logic.test.mjs && node tests/connected.test.mjs && node tests/sql-files.test.mjs"
+    "test": "node tests/logic.test.mjs && node tests/connected.test.mjs && node tests/sql-files.test.mjs && node tests/sql-scenarios.test.mjs",
+    "test:sql": "node tests/sql-scenarios.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -24,6 +25,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/vite": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",

@@ -2,9 +2,11 @@ import { createContext, useContext } from "react";
 import type { Employee, WorkRecord } from "../lib/demo";
 import type { SettingsData } from "../lib/settings";
 import type { Closure } from "../lib/records";
+import type { CompensationData, CompensationInput } from "../lib/compensations";
+import type { ManualPunchInput } from "../lib/manual-punch";
 
 export type AppEmployee = Employee & { profileId?: string; employeeNumber?: string; appRole?: "admin" | "employee" };
-export type TimeEvent = { id: string; employeeId: string; institution: string; kind: "Entrada" | "Salida"; occurredAt: string; reason: string; notes: string | null };
+export type TimeEvent = { id: string; employeeId: string; institution: string; kind: "Entrada" | "Salida"; occurredAt: string; reason: string; notes: string | null; manual?: boolean; recordedAt?: string };
 export type AuditEvent = { id: string; action: string; entity_type: string; created_at: string; actor_name: string };
 export type RemoteData = {
   profile: { id: string; name: string; role: "admin" | "employee"; employeeId: string; employeeNumber: string; active: boolean };
@@ -15,6 +17,8 @@ export type RemoteData = {
   institutions: { id: string; name: string }[];
   closures: Record<string, Closure>;
   audit: AuditEvent[];
+  compensationData?: CompensationData;
+  manualPunchAvailable?: boolean;
 };
 export type RemoteContextValue = RemoteData & {
   refreshing: boolean;
@@ -22,11 +26,14 @@ export type RemoteContextValue = RemoteData & {
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
   punch: (input: { kind: "Entrada" | "Salida"; institution: string; reason: string; notes: string }) => Promise<void>;
+  manualPunch: (input: ManualPunchInput) => Promise<void>;
   review: (id: string, status: "Aprobado" | "Rechazado" | "Corregido", entry?: string, exit?: string, notes?: string) => Promise<void>;
   saveSettings: (settings: SettingsData) => Promise<void>;
   close: (month: string) => Promise<void>;
   reopen: (month: string, reason: string) => Promise<void>;
   saveEmployee: (employee: AppEmployee) => Promise<void>;
+  createCompensation: (input: CompensationInput) => Promise<void>;
+  changeCompensation: (id: string, status: "completed" | "cancelled", reason?: string) => Promise<void>;
 };
 export const DataContext = createContext<RemoteContextValue | null>(null);
 export function useRemoteData() { return useContext(DataContext); }

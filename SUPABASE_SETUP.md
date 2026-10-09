@@ -1,5 +1,40 @@
 # Conectar y habilitar el panel de Fichado Zion ortopedia
 
+## Corregir el guardado de instituciones y feriados
+
+Si aparece `DELETE requires a WHERE clause`, ejecutar una sola vez
+`supabase/migrations/007_fix_settings_save.sql` después de 006.
+La función anterior borraba todos los feriados sin WHERE al guardar cualquier
+cambio de configuración. La nueva quita solo las fechas retiradas y conserva
+las restantes. No volver a ejecutar setup.sql. Prueba reversible:
+`supabase/tests/settings.sql` en SQL Editor tras la migración.
+
+## Habilitar fichajes manuales de administradores
+
+Después de 005, ejecutar una sola vez todo
+`supabase/migrations/006_admin_manual_punch.sql` en SQL Editor y recargar.
+No repetir setup.sql. La migración añade origen manual, asociación a una jornada
+y RPC exclusiva para administradores; no cambia los eventos existentes.
+Verificar con `supabase/tests/manual_punch.sql`, que revierte los datos ficticios.
+Si falla una prueba, ejecutar `ROLLBACK` antes de continuar.
+
+## Habilitar compensaciones en una base existente
+
+Con las migraciones 001–004 instaladas, ejecutar una sola vez todo
+`supabase/migrations/005_overtime_compensations.sql` en SQL Editor y recargar
+la aplicación. No volver a ejecutar `setup.sql`. La migración crea el registro
+de descansos, protege sus permisos y habilita el saldo; no modifica fichajes.
+
+Hasta instalar 005, el resto del panel sigue funcionando y Compensaciones
+indica que el módulo no está habilitado. Después, los administradores pueden
+reservar descansos, confirmar su realización y cancelarlos con motivo.
+Los empleados consultan sus descansos y saldo. Reportes muestra el uso mensual
+y el saldo global por separado de las horas trabajadas.
+
+Prueba de la base instalada: `supabase/tests/compensations.sql` (datos de prueba
+revertidos con ROLLBACK). El mes actual debe estar abierto para los descansos
+de prueba. Si aparece un error, ejecutar `ROLLBACK` antes de continuar.
+
 ## Si tu conexión ya funciona
 
 No cambies tus variables de conexión ni vuelvas a instalar la base inicial.

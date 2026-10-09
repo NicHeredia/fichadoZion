@@ -17,7 +17,7 @@ function fixture({ data = base, states = [], rpc = async () => [], location = "/
   const calls = [], setters = [], cache = new Map(); let stateIndex = 0;
   const fn = tag => Object.assign(() => null, { tag });
   const ui = Object.fromEntries(["Button","Card","Input","Select","PageTitle","Badge"].map(name => [name,fn(name)]));
-  const remote = { ...data, punch: async input => calls.push(["punch",input]), review: async (...args) => calls.push(["review",...args]), close: async month => calls.push(["close",month]), reopen: async (...args) => calls.push(["reopen",...args]), saveSettings: async value => calls.push(["settings",value]), saveEmployee: async value => calls.push(["employee",value]), refresh: async () => calls.push(["refresh"]), logout: async () => calls.push(["logout"]) };
+  const remote = { ...data, manualPunch: async input => calls.push(["manualPunch",input]), createCompensation: async input => calls.push(["compensation",input]), changeCompensation: async (...args) => calls.push(["compensationStatus",...args]), punch: async input => calls.push(["punch",input]), review: async (...args) => calls.push(["review",...args]), close: async month => calls.push(["close",month]), reopen: async (...args) => calls.push(["reopen",...args]), saveSettings: async value => calls.push(["settings",value]), saveEmployee: async value => calls.push(["employee",value]), refresh: async () => calls.push(["refresh"]), logout: async () => calls.push(["logout"]) };
   const forbid = () => { throw new Error("Se intentó usar almacenamiento de la demo en modo conectado"); };
   const icons = new Proxy({}, { get: (_target,name) => fn(String(name)) });
   const react = {
@@ -41,6 +41,7 @@ function fixture({ data = base, states = [], rpc = async () => [], location = "/
       if (spec.endsWith("/records")) return { getRecords:forbid, subscribeRecords:forbid, getClosures:forbid, getStorageError:forbid, registerPunch:forbid, updateRecord:forbid, closeMonth:forbid, reopenMonth:forbid, exportRecords:()=>{}, localDate:()=>"2026-10-08",recordMonth:r=>r.isoDate.slice(0,7),TIME_ZONE:"America/Argentina/Buenos_Aires" };
       if (spec.endsWith("/settings")) return { getSettings:forbid, saveSettings:forbid, validateSettings(){},defaultSettings:base.settings };
       if (spec.endsWith("/demo")) return { employees:[{name:"Empleado ficticio"}],formatMinutes:m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0") };
+      if (spec.endsWith("/compensations")) return load("src/lib/compensations.ts");
       if (spec.endsWith("/supabase")) return { isDemoMode:false,supabase:{auth},configurationError:null };
       if (spec.endsWith("/AuthForm")) return { default: fn("AuthForm") };
       if (spec.endsWith("/ui")) return ui;
@@ -79,7 +80,7 @@ await test("El empleado no ve módulos administrativos y una ruta directa se red
   const data={...base,profile:{...base.profile,role:"employee"}};
   const f=fixture({data,location:"/empleados"});
   const tree=f.load("src/components/AppShell.tsx").AppShell();
-  assert.deepEqual(byTag(tree,"NavLink").map(n=>n.props.to),["/","/registrar","/historial","/reportes"]);
+  assert.deepEqual(byTag(tree,"NavLink").map(n=>n.props.to),["/","/registrar","/historial","/reportes","/compensaciones"]);
   assert.equal(byTag(tree,"Navigate")[0].props.to,"/");
   assert.ok(nodes(tree).some(n=>n.type==="button" && n.props.children==="Cerrar sesión"));
 });
@@ -185,4 +186,83 @@ await test("Cambiar el selector de rol guarda al administrador sin abrir otro fo
   assert.equal(byTag(tree, "Select").find(n => n.props["aria-label"] === "Rol de Usuario Real").props.disabled, true);
 });
 
+const compensationData = { balances: [{ employeeId: employee.id, earned:600,reserved:120,used:180,available:300 }],
+  compensations:[{id:"rest-a",employeeId:employee.id,minutes:120,restDate:"2026-10-08",reason:"Descanso programado",status:"scheduled",cancellationReason:null,createdAt:"2026-10-08",updatedAt:"2026-10-08"}] };
+await test("El administrador programa un descanso por horas y minutos",async()=>{
+  const f=fixture({data:{...base,compensationData},states:[employee.id,"2:30","2026-10-08","Compensación","scheduled",null,"",false,"",""]});
+  const tree=f.load("src/pages/Compensations.tsx").default();
+  await nodes(tree).find(n=>n.type==="form").props.onSubmit({preventDefault(){}});
+  assert.deepEqual(JSON.parse(JSON.stringify(f.calls[0])),["compensation",{employeeId:employee.id,minutes:150,restDate:"2026-10-08",reason:"Compensación",status:"scheduled"}]);
+});
+await test("El formulario rechaza un descuento que excede el saldo",async()=>{
+  const f=fixture({data:{...base,compensationData},states:[employee.id,"5:01","2026-10-08","Exceso","scheduled",null,"",false,"",""]});
+  await nodes(f.load("src/pages/Compensations.tsx").default()).find(n=>n.type==="form").props.onSubmit({preventDefault(){}});
+  assert.equal(f.calls.length,0);
+  assert.ok(f.setters.some(([,value])=>String(value).includes("saldo disponible")));
+});
+await test("El empleado consulta el saldo sin formularios ni acciones administrativas",()=>{
+  const f=fixture({data:{...base,profile:{...base.profile,role:"employee"},compensationData}});
+  const tree=f.load("src/pages/Compensations.tsx").default();
+  assert.equal(nodes(tree).filter(n=>n.type==="form").length,0);
+  assert.equal(byTag(tree,"Select")[0].props.disabled,true);
+  assert.ok(!JSON.stringify(tree).includes("Confirmar realizado"));
+});
+await test("Una migración pendiente no habilita operaciones de compensaciones",()=>{
+  const f=fixture(); const tree=f.load("src/pages/Compensations.tsx").default();
+  assert.equal(nodes(tree).filter(n=>n.type==="form").length,0);
+  assert.ok(JSON.stringify(tree).includes("todavía no está habilitado"));
+});
+await test("El reporte separa descansos y saldo de las horas trabajadas",()=>{
+  const f=fixture({data:{...base,compensationData}}); const tree=f.load("src/pages/Reports.tsx").default();
+  assert.ok(JSON.stringify(tree).includes("Saldo disponible acumulado"));
+  const rows=nodes(tree).filter(n=>n.type==="tbody");
+  assert.equal(rows.length,2);
+});
+await test("La solicitud de descanso conserva el ID al reintentar",async()=>{
+  let first=true;
+  const f=fixture({states:[{user:{id:"user-a"}},false,false,""],rpc:async()=>{if(first){first=false;throw new Error("Red interrumpida");}return [];}});
+  const tree=f.load("src/app/ConnectedApp.tsx").default();
+  const workspace=nodes(tree).find(n=>n.type?.name==="Workspace");
+  const api=workspace.type(workspace.props).props.value;
+  const input={employeeId:employee.id,minutes:120,restDate:"2026-10-08",reason:"Descanso",status:"scheduled"};
+  await assert.rejects(()=>api.createCompensation(input),/Red interrumpida/);
+  await api.createCompensation(input); await api.createCompensation(input);
+  const requests=f.calls.filter(c=>c[0]==="rpc").map(c=>c[2].p_id);
+  assert.equal(requests[0],requests[1]); assert.notEqual(requests[1],requests[2]);
+});
+await test("El administrador completa la jornada pendiente con fecha y hora manual",async()=>{
+  const data={...base,manualPunchAvailable:true,records:[{...record,exit:undefined,status:"Pendiente",minutes:0}]};
+  const f=fixture({data,states:[employee.id,"Salida","place-a","2026-10-08","20:00","Olvido verificado","","",false,"",""]});
+  const tree=f.load("src/pages/ManualPunch.tsx").default();
+  await nodes(tree).find(n=>n.type==="form").props.onSubmit({preventDefault(){}});
+  assert.deepEqual(JSON.parse(JSON.stringify(f.calls[0])),["manualPunch",{employeeId:employee.id,kind:"Salida",institutionId:"place-a",date:"2026-10-08",time:"20:00",reason:"Olvido verificado",notes:"",targetId:record.id}]);
+});
+await test("El empleado no ve ni puede abrir el formulario de carga manual",()=>{
+  const data={...base,manualPunchAvailable:true,profile:{...base.profile,role:"employee"}};
+  const f=fixture({data,location:"/fichaje-manual"});
+  assert.equal(nodes(f.load("src/pages/ManualPunch.tsx").default()).filter(n=>n.type==="form").length,0);
+  const shell=f.load("src/components/AppShell.tsx").AppShell();
+  assert.ok(!byTag(shell,"NavLink").some(n=>n.props.to==="/fichaje-manual"));
+  assert.equal(byTag(shell,"Navigate")[0].props.to,"/");
+});
+await test("Dos jornadas ambiguas exigen seleccionar cuál completar",async()=>{
+  const pending={...record,exit:undefined,status:"Pendiente",minutes:0};
+  const data={...base,manualPunchAvailable:true,records:[pending,{...pending,id:"other-session"}]};
+  const f=fixture({data,states:[employee.id,"Salida","place-a","2026-10-08","20:00","Olvido verificado","","",false,"",""]});
+  await nodes(f.load("src/pages/ManualPunch.tsx").default()).find(n=>n.type==="form").props.onSubmit({preventDefault(){}});
+  assert.equal(f.calls.length,0);
+  assert.ok(f.setters.some(([,value])=>String(value).includes("Seleccioná la jornada")));
+});
+await test("Un reintento de carga manual conserva la solicitud original",async()=>{
+  let first=true;
+  const f=fixture({states:[{user:{id:"user-a"}},false,false,""],rpc:async()=>{if(first){first=false;throw new Error("Red interrumpida");}return [];}});
+  const tree=f.load("src/app/ConnectedApp.tsx").default();
+  const workspace=nodes(tree).find(n=>n.type?.name==="Workspace");
+  const api=workspace.type(workspace.props).props.value;
+  const input={employeeId:employee.id,kind:"Salida",institutionId:"place-a",date:"2026-10-08",time:"20:00",reason:"Olvido",notes:"",targetId:record.id};
+  await assert.rejects(()=>api.manualPunch(input),/Red interrumpida/);
+  await api.manualPunch(input); await api.manualPunch(input);
+  const ids=f.calls.filter(c=>c[0]==="rpc").map(c=>c[2].p_request_id);
+  assert.equal(ids[0],ids[1]); assert.notEqual(ids[1],ids[2]);
+});
 console.log(results.length+" pruebas de integración conectada aprobadas");

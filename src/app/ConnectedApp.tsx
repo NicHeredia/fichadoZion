@@ -11,6 +11,8 @@ import AuthForm from "../components/AuthForm";
 
 function Workspace({ session, logout }: { session: Session; logout: () => Promise<void> }) {
   const request = useRef<{ signature: string; id: string } | null>(null);
+  const compensationRequest = useRef<{ signature: string; id: string } | null>(null);
+  const manualRequest = useRef<{ signature: string; id: string } | null>(null);
   const query = useQuery({
     queryKey: ["workspace", session.user.id],
     queryFn: loadRemoteData,
@@ -41,6 +43,13 @@ function Workspace({ session, logout }: { session: Session; logout: () => Promis
       request.current = null;
       await refresh();
     },
+    async manualPunch(input) {
+      const signature = JSON.stringify(input);
+      if (manualRequest.current?.signature !== signature) manualRequest.current = { signature, id: crypto.randomUUID() };
+      await callRpc("admin_register_manual_event", { p_employee: input.employeeId, p_event_type: input.kind === "Entrada" ? "entry" : "exit", p_institution: input.institutionId, p_date: input.date, p_time: input.time, p_reason: input.reason.trim(), p_notes: input.notes.trim(), p_request_id: manualRequest.current.id, p_target: input.targetId });
+      manualRequest.current = null;
+      await refresh();
+    },
     async review(id, status, entry, exit, notes) {
       await mutate("admin_review_session", { p_id: id, p_status: status === "Aprobado" ? "approved" : status === "Rechazado" ? "rejected" : "corrected", p_entry: entry || null, p_exit: exit || null, p_notes: notes || "" });
     },
@@ -52,6 +61,16 @@ function Workspace({ session, logout }: { session: Session; logout: () => Promis
     async reopen(month, reason) { await mutate("admin_reopen_month", { p_month: month + "-01", p_reason: reason }); },
     async saveEmployee(employee) {
       await mutate("admin_save_employee", { p_id: employee.id, p_name: employee.name, p_number: employee.employeeNumber, p_active: employee.status === "Activo", p_role: employee.appRole });
+    },
+    async createCompensation(input) {
+      const signature = JSON.stringify(input);
+      if (compensationRequest.current?.signature !== signature) compensationRequest.current = { signature, id: crypto.randomUUID() };
+      await callRpc("admin_create_compensation", { p_id: compensationRequest.current.id, p_employee: input.employeeId, p_minutes: input.minutes, p_date: input.restDate, p_reason: input.reason.trim(), p_status: input.status });
+      compensationRequest.current = null;
+      await refresh();
+    },
+    async changeCompensation(id, status, reason = "") {
+      await mutate("admin_change_compensation", { p_id: id, p_status: status, p_reason: reason.trim() });
     },
   };
   return <DataContext.Provider value={value}><RouterProvider router={router} /></DataContext.Provider>;

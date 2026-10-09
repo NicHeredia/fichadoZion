@@ -6,6 +6,7 @@ import { Button, Card, Input, PageTitle, Select } from "../components/ui";
 import { defaultSettings, getSettings } from "../lib/settings";
 import { formatMinutes } from "../lib/demo";
 import { localDate, recordMonth, registerPunch, TIME_ZONE } from "../lib/records";
+import { Link } from "react-router";
 
 type Kind = "Entrada" | "Salida";
 const clockOptions = { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" } as const;
@@ -75,7 +76,7 @@ export function Register() {
   const latest = personal.find(r => r.lastEventAt);
   const latestEvent = remote?.events.find(e => e.employeeId === remote.profile.employeeId);
   return <>
-    <PageTitle title="Registrar fichaje" subtitle={remote ? "Registrá tus movimientos. La fecha y hora oficial se guardan en el servidor al confirmar." : "Registrá movimientos fuera de tu jornada habitual. En demo se guardan en este navegador."} />
+    <PageTitle title="Registrar fichaje" subtitle={remote ? "Registrá tus movimientos. La fecha y hora oficial se guardan en el servidor al confirmar." : "Registrá movimientos fuera de tu jornada habitual. En demo se guardan en este navegador."} action={remote?.profile.role === "admin" ? <Link className="btn btn-secondary" to="/fichaje-manual">Cargar fichaje manual</Link> : undefined} />
     {settingsError && <p role="alert" className="error-banner">{settingsError}</p>}
     {success && <div className="success-banner" role="status"><span><Check size={18} /></span><div><b>{success}</b><p>Podés consultarla en el historial.</p></div></div>}
     <div className="register-layout"><Card className="clock-card">

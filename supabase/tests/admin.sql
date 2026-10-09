@@ -96,8 +96,15 @@ select pg_temp.assert_true((select sum(total_minutes)=360 from public.monthly_cl
 -- Desbloquear temporalmente el mes actual solo dentro de esta transacción.
 update public.monthly_closures set closed_at=null where year=extract(year from now() at time zone 'America/Argentina/Buenos_Aires')::integer and month=extract(month from now() at time zone 'America/Argentina/Buenos_Aires')::integer;
 select set_config('test.request',gen_random_uuid()::text,true);
+-- Usuario independiente: los históricos de 2197 del usuario A activarían
+-- el detector de duplicados al probar una solicitud con la hora actual.
+select set_config('test.rpc_user',gen_random_uuid()::text,true);
+insert into auth.users(id,email,raw_user_meta_data)
+values(current_setting('test.rpc_user')::uuid,
+  current_setting('test.rpc_user')||'@example.invalid',
+  '{"display_name":"Prueba de reintentos"}'::jsonb);
 set local role authenticated;
-select set_config('request.jwt.claim.sub',current_setting('test.user_a'),true);
+select set_config('request.jwt.claim.sub',current_setting('test.rpc_user'),true);
 select set_config('test.event',(select id::text from public.register_time_event('entry',current_setting('test.place')::uuid,'Inicio de prueba','',current_setting('test.request')::uuid)),true);
 select pg_temp.assert_true((select id::text=current_setting('test.event') from public.register_time_event('entry',current_setting('test.place')::uuid,'Inicio de prueba','',current_setting('test.request')::uuid)),'El reintento devuelve el evento original');
 select pg_temp.expect_error('select public.register_time_event(''entry'','''||current_setting('test.place')||''',''Duplicado'','''',gen_random_uuid())','duplicado');
@@ -105,9 +112,9 @@ select pg_temp.assert_true((select count(*)=1 from public.time_events where clie
 
 -- Legajo inactivo no puede fichar ni administrar.
 reset role;
-update public.employees set active=false where profile_id=current_setting('test.user_a')::uuid;
+update public.employees set active=false where profile_id=current_setting('test.rpc_user')::uuid;
 set local role authenticated;
-select set_config('request.jwt.claim.sub',current_setting('test.user_a'),true);
+select set_config('request.jwt.claim.sub',current_setting('test.rpc_user'),true);
 select pg_temp.expect_error('select public.register_time_event(''exit'','''||current_setting('test.place')||''',''Bloqueado'','''',gen_random_uuid())','no habilitado');
 reset role;
 update public.employees set active=false where profile_id=current_setting('test.admin')::uuid;
