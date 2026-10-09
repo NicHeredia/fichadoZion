@@ -113,6 +113,36 @@ export async function runTests() {
   fixtureCsv.records.exportRecords([{ ...fixtureCsv.records.getRecords()[0], reason: '=HYPERLINK("bad")', notes: "Línea 1\nLínea 2" }]);
   const csv = await fixtureCsv.state.blob.text();
   assert.equal(fixtureCsv.state.clicked, true); assert.ok(csv.includes("'=HYPERLINK")); assert.ok(csv.includes('""bad""')); assert.ok(csv.includes("Línea 1\nLínea 2")); results.push("CSV escapa comillas y neutraliza fórmulas");
+  test("Cierre a medianoche argentina, cálculo y persistencia idempotente", () => {
+    const { records, storage } = fixture();
+    const r = records.registerPunch({ kind: "Entrada", institution: "A", reason: "Inicio", notes: "",
+      capturedAt: new Date("2026-10-08T09:00:00Z") });
+    assert.equal(records.finalizeOpenRecords(new Date("2026-10-09T02:59:59Z")), 0);
+    assert.equal(records.finalizeOpenRecords(new Date("2026-10-09T03:00:00Z")), 1);
+    const closed = records.getRecords().find(x => x.id === r.id);
+    assert.equal(closed.exit, "17:00"); assert.equal(closed.inferredExit, true);
+    assert.equal(closed.status, "Automático"); assert.equal(closed.minutes, 120);
+    assert.equal(closed.lastEventAt, r.lastEventAt);
+    assert.equal(records.finalizeOpenRecords(new Date("2026-10-10T03:00:00Z")), 0);
+    assert.equal(fixture({ "horaclara-records-v1": storage.get("horaclara-records-v1") })
+      .records.getRecords().find(x => x.id === r.id).exit, "17:00");
+  });
+  test("El cierre conserva la jornada original y evita inferencias inseguras", () => {
+    const punch = (records, date, time) => records.registerPunch({ kind: "Entrada", institution: "A",
+      reason: "Inicio", notes: "", capturedAt: new Date(date + "T" + time + ":00-03:00") });
+    const { records, settings } = fixture();
+    const first = punch(records, "2026-10-08", "06:00");
+    settings.saveSettings({ ...settings.getSettings(), endsAt: "18:00" });
+    records.finalizeOpenRecords(new Date("2026-10-09T03:00:00Z"));
+    assert.equal(records.getRecords().find(x => x.id === first.id).exit, "17:00");
+    const late = fixture().records; punch(late, "2026-10-08", "18:00");
+    assert.equal(late.finalizeOpenRecords(new Date("2026-10-09T03:00:00Z")), 0);
+    const weekend = fixture().records; punch(weekend, "2026-10-10", "06:00");
+    assert.equal(weekend.finalizeOpenRecords(new Date("2026-10-11T03:00:00Z")), 0);
+    const ambiguous = fixture().records;
+    punch(ambiguous, "2026-10-08", "06:00"); punch(ambiguous, "2026-10-08", "07:00");
+    assert.equal(ambiguous.finalizeOpenRecords(new Date("2026-10-09T03:00:00Z")), 0);
+  });
   return results;
 }
 export const results = await runTests();

@@ -73,6 +73,9 @@ export function registerPunch(input: { kind: "Entrada" | "Salida"; institution: 
   const calculation = calculateOvertime(entry, exit, settings.weekdays.includes(day) && !settings.holidays.includes(isoDate), settings);
   const record: WorkRecord = {
     id: candidate?.id ?? crypto.randomUUID(), date: new Intl.DateTimeFormat("es-AR", { timeZone: TIME_ZONE }).format(input.capturedAt), isoDate,
+    scheduleStart: candidate?.scheduleStart ?? settings.startsAt,
+    scheduleEnd: candidate?.scheduleEnd ?? settings.endsAt,
+    workingDay: candidate?.workingDay ?? (settings.weekdays.includes(day) && !settings.holidays.includes(isoDate)),
     employee, initials: "MG", entry: entry ?? (calculation.inferred ? settings.startsAt : undefined), exit, institution: input.institution,
     reason: candidate ? candidate.reason + " / " + input.reason : input.reason,
     notes: candidate ? [candidate.notes, input.notes].filter(Boolean).join(" / ") : input.notes,
@@ -84,6 +87,30 @@ export function registerPunch(input: { kind: "Entrada" | "Salida"; institution: 
   if (input.kind === "Entrada") { record.status = "Pendiente"; record.minutes = 0; record.inferredExit = false; }
   save([record, ...records.filter(r => r.id !== record.id)]);
   return record;
+}
+// En la demo se recuperan los cierres al abrirla; en producción corre Supabase Cron.
+export function finalizeOpenRecords(now = new Date()) {
+  const today = localDate(now);
+  const records = getRecords();
+  const closures = getClosures();
+  let count = 0;
+  const next = records.map(r => {
+    if (!r.isoDate || r.isoDate >= today || r.status !== "Pendiente" ||
+      !r.entry || r.exit || !r.workingDay || !r.scheduleStart || !r.scheduleEnd ||
+      r.entry >= r.scheduleEnd || closures[recordMonth(r)]) return r;
+    if (records.some(other => other.id !== r.id && other.employee === r.employee &&
+      other.isoDate === r.isoDate && other.status !== "Rechazado" &&
+      (other.status === "Pendiente" || (other.entry && other.exit &&
+        other.entry < r.scheduleEnd! && other.exit > r.entry!)))) return r;
+    const result = calculateOvertime(r.entry, r.scheduleEnd, true,
+      { startsAt: r.scheduleStart, endsAt: r.scheduleEnd });
+    if (result.review) return r;
+    count++;
+    return { ...r, exit: r.scheduleEnd, inferredExit: true,
+      status: "Automático" as const, minutes: result.minutes };
+  });
+  if (count) save(next);
+  return count;
 }
 export function exportRecords(records: WorkRecord[], filename = "historial.csv") {
   const cell = (value: unknown) => {

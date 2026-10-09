@@ -23,6 +23,9 @@ export type WorkRecord = {
   notes?: string;
   capturedAt?: string;
   lastEventAt?: string;
+  scheduleStart?: string;
+  scheduleEnd?: string;
+  workingDay?: boolean;
   employee: string;
   initials: string;
   entry?: string;

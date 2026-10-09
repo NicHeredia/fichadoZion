@@ -126,3 +126,24 @@ Documentación de referencia:
 - https://supabase.com/docs/guides/database/functions
 - https://supabase.com/docs/guides/database/postgres/row-level-security
 - https://www.postgresql.org/docs/current/functions-formatting.html
+
+## Salida automática al finalizar el día
+
+Para un proyecto que ya tiene 001, 002 y 003, ejecutar únicamente
+`supabase/migrations/004_automatic_checkout.sql` en SQL Editor. No repetir setup.
+La migración habilita pg_cron, instala el cierre y programa su ejecución cada minuto.
+Si la extensión requiere habilitación previa, activarla en Integrations → Cron
+y volver a ejecutar 004.
+
+Después de las 00:00 de Argentina, las entradas abiertas de días laborales
+se completan con la salida guardada en esa jornada (17:00 por defecto).
+No cambia fichajes originales: marca el período como Automático, salida inferida,
+recalcula extras y registra la acción del sistema en Auditoría. Funciona con la app cerrada.
+También procesa pendientes anteriores elegibles al instalarse.
+Días no laborales/feriados, entradas a partir de la salida habitual, superposiciones
+y registros ambiguos siguen pendientes. No modifica meses cerrados.
+
+Comprobar en Integrations → Cron que zion-close-missing-exits esté activo
+y tenga ejecuciones exitosas. Pruebas SQL: supabase/tests/automatic_checkout.sql
+(en un proyecto de pruebas; terminan con ROLLBACK).
+Referencia: https://supabase.com/docs/guides/cron/quickstart

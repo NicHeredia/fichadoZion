@@ -29,7 +29,7 @@ Consultar `SUPABASE_SETUP.md` para instalación nueva y comprobaciones.
 - Emparejamiento del mismo empleado, día e institución cuando existe una sola entrada pendiente.
 - Cálculo de minutos antes y después de la jornada; período completo en días no laborales.
 - Salida sin entrada: inferencia de entrada en día laboral cuando el horario es válido.
-- Entradas abiertas y movimientos ambiguos quedan pendientes, con cero minutos hasta resolverlos.
+- Las entradas abiertas quedan pendientes hasta la medianoche argentina. En días laborales, el servidor completa la salida habitual (17:00 por defecto) como inferida y recalcula las horas extras. Movimientos ambiguos, entradas posteriores a la salida habitual y días no laborales requieren revisión.
 - Corrección de horarios de un período del mismo día, aprobación o rechazo.
 - Los eventos originales se conservan; las decisiones y cambios se auditan.
 - Configuración de jornada, días laborales, feriados e instituciones.
