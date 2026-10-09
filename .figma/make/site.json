@@ -1,0 +1,10 @@
+{
+  "description": "Efficiently manage and track employee overtime with a user-friendly web application that allows secure logging, approval processes, and detailed reporting.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

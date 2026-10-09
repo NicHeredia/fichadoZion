@@ -1,0 +1,188 @@
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import vm from "node:vm";
+import { randomUUID } from "node:crypto";
+const require = createRequire(import.meta.url);
+const ts = require("typescript");
+const jsx = require("react/jsx-runtime");
+const root = fileURLToPath(new URL("../", import.meta.url));
+const results = [];
+const test = async (name, fn) => { await fn(); results.push(name); };
+const employee = { id: "employee-a", profileId: "user-a", name: "Usuario Real", initials: "UR", user: "A-1", employeeNumber: "A-1", appRole: "admin", role: "Administrador", status: "Activo" };
+const record = { id: "session-a", employeeId: employee.id, employee: employee.name, initials: "UR", isoDate: "2026-10-08", date: "08/10/2026", entry: "18:00", exit: "21:00", minutes: 180, status: "Automático", reason: "Trabajo real", institution: "Institución real" };
+const base = { profile: { id: "user-a", name: employee.name, role: "admin", employeeId: employee.id, employeeNumber: "A-1", active: true }, records: [record], employees: [employee], settings: { startsAt: "08:00", endsAt: "17:00", weekdays: [1,2,3,4,5], institutions: ["Institución real"], holidays: [] }, institutions: [{ id: "place-a", name: "Institución real" }], events: [], closures: {}, audit: [], refreshing: false, syncError: "" };
+function fixture({ data = base, states = [], rpc = async () => [], location = "/", auth = {} } = {}) {
+  const calls = [], setters = [], cache = new Map(); let stateIndex = 0;
+  const fn = tag => Object.assign(() => null, { tag });
+  const ui = Object.fromEntries(["Button","Card","Input","Select","PageTitle","Badge"].map(name => [name,fn(name)]));
+  const remote = { ...data, punch: async input => calls.push(["punch",input]), review: async (...args) => calls.push(["review",...args]), close: async month => calls.push(["close",month]), reopen: async (...args) => calls.push(["reopen",...args]), saveSettings: async value => calls.push(["settings",value]), saveEmployee: async value => calls.push(["employee",value]), refresh: async () => calls.push(["refresh"]), logout: async () => calls.push(["logout"]) };
+  const forbid = () => { throw new Error("Se intentó usar almacenamiento de la demo en modo conectado"); };
+  const icons = new Proxy({}, { get: (_target,name) => fn(String(name)) });
+  const react = {
+    useState(initial) { const index=stateIndex++; return [index in states ? states[index] : typeof initial === "function" ? initial() : initial, next => setters.push([index,next])]; },
+    useRef: initial => ({ current: initial }), useEffect() {},
+    useSyncExternalStore(subscribe,getSnapshot) { subscribe(() => {}); return getSnapshot(); },
+  };
+  const context = vm.createContext({ console, Date, Intl, crypto:{randomUUID}, window:{addEventListener(){},removeEventListener(){},setInterval(){},clearInterval(){}}, document:{body:{style:{}}}, setTimeout, URL, FormData: class { constructor(values) { this.values = values; } get(key) { return this.values[key] ?? null; } } });
+  function load(name) {
+    if (cache.has(name)) return cache.get(name);
+    const source=readFileSync(root+name,"utf8");
+    const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+    const module={exports:{}}; cache.set(name,module.exports);
+    const mockRequire = spec => {
+      if (spec==="react") return react;
+      if (spec==="react/jsx-runtime") return jsx;
+      if (spec==="lucide-react" || spec==="recharts") return icons;
+      if (spec==="react-router") return { NavLink:fn("NavLink"), Link:fn("Link"), Navigate:fn("Navigate"), Outlet:fn("Outlet"), RouterProvider:fn("Router"), useLocation:()=>({pathname:location}),useNavigate:()=>to=>calls.push(["navigate",to]),useSearchParams:()=>[new URLSearchParams(),()=>{}] };
+      if (spec.endsWith("/DataContext")) return { useRemoteData:()=>remote, DataContext:{Provider:fn("Provider")} };
+      if (spec.endsWith("/useAppRecords")) return { useAppRecords:()=>data.records };
+      if (spec.endsWith("/records")) return { getRecords:forbid, subscribeRecords:forbid, getClosures:forbid, getStorageError:forbid, registerPunch:forbid, updateRecord:forbid, closeMonth:forbid, reopenMonth:forbid, exportRecords:()=>{}, localDate:()=>"2026-10-08",recordMonth:r=>r.isoDate.slice(0,7),TIME_ZONE:"America/Argentina/Buenos_Aires" };
+      if (spec.endsWith("/settings")) return { getSettings:forbid, saveSettings:forbid, validateSettings(){},defaultSettings:base.settings };
+      if (spec.endsWith("/demo")) return { employees:[{name:"Empleado ficticio"}],formatMinutes:m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0") };
+      if (spec.endsWith("/supabase")) return { isDemoMode:false,supabase:{auth},configurationError:null };
+      if (spec.endsWith("/AuthForm")) return { default: fn("AuthForm") };
+      if (spec.endsWith("/ui")) return ui;
+      if (spec.endsWith("/StatusBadge")) return { StatusBadge:fn("StatusBadge") };
+      if (spec==="@tanstack/react-query") return { useQuery:()=>({data,isFetching:false,isError:false,refetch:async()=>calls.push(["refresh"])}),useQueryClient:()=>({clear(){}}) };
+      if (spec.endsWith("/remote")) return {callRpc:async (...args)=>{calls.push(["rpc",...args]);return rpc(...args);},loadRemoteData:async()=>data};
+      if (spec==="./routes") return {router:{}};
+      throw new Error("Import no simulado: "+spec);
+    };
+    vm.runInContext("(function(require,module,exports){"+code+"\n})",context)(mockRequire,module,module.exports);
+    return module.exports;
+  }
+  return {load,remote,ui,calls,setters};
+}
+function nodes(tree) {
+  if (!tree || typeof tree!=="object") return [];
+  if (Array.isArray(tree)) return tree.flatMap(nodes);
+  return [tree,...nodes(tree.props?.children)];
+}
+const byTag = (tree,tag) => nodes(tree).filter(n=>n.type?.tag===tag);
+await test("El fichaje conectado llama al servidor y nunca guarda datos de demostración",async()=>{
+  const f=fixture({states:[false,new Date("2026-10-08T21:00:00Z"),"Entrada",new Date(),"Institución real","","Trabajo real","","",""]});
+  const tree=f.load("src/pages/Register.tsx").default();
+  const form=nodes(tree).find(n=>n.type==="form");
+  assert.ok(form); await form.props.onSubmit({preventDefault(){}});
+  assert.equal(f.calls[0][0],"punch"); assert.equal(f.calls[0][1].institution,"Institución real");
+  assert.ok(f.setters.some(([index,value])=>index===9 && String(value).includes("hora del servidor")));
+});
+await test("El dashboard usa el directorio real y no introduce empleados ficticios",()=>{
+  const f=fixture(); const tree=f.load("src/pages/Dashboard.tsx").default();
+  assert.equal(byTag(tree,"PageTitle")[0].props.title,"Hola, Usuario Real");
+  assert.ok(!JSON.stringify(tree).includes("Empleado ficticio"));
+  assert.ok(!JSON.stringify(tree).includes("Mariana"));
+});
+await test("El empleado no ve módulos administrativos y una ruta directa se redirige",()=>{
+  const data={...base,profile:{...base.profile,role:"employee"}};
+  const f=fixture({data,location:"/empleados"});
+  const tree=f.load("src/components/AppShell.tsx").AppShell();
+  assert.deepEqual(byTag(tree,"NavLink").map(n=>n.props.to),["/","/registrar","/historial","/reportes"]);
+  assert.equal(byTag(tree,"Navigate")[0].props.to,"/");
+  assert.ok(nodes(tree).some(n=>n.type==="button" && n.props.children==="Cerrar sesión"));
+});
+await test("El administrador conserva los módulos completos",()=>{
+  const f=fixture(); const tree=f.load("src/components/AppShell.tsx").AppShell();
+  for (const route of ["/empleados","/revisiones","/cierre","/configuracion","/auditoria"]) assert.ok(byTag(tree,"NavLink").some(n=>n.props.to===route));
+});
+await test("Los reportes distinguen empleados con el mismo nombre por su ID",()=>{
+  const other={...employee,id:"employee-b",employeeNumber:"B-1"};
+  const data={...base,employees:[employee,other],records:[record,{...record,id:"session-b",employeeId:other.id,minutes:600}]};
+  const f=fixture({data}); const tree=f.load("src/pages/Reports.tsx").default();
+  assert.equal(byTag(tree,"Select")[0].props.value,employee.id);
+  const body=nodes(tree).find(n=>n.type==="tbody");
+  assert.equal(nodes(body).filter(n=>n.type==="tr").length,1);
+});
+await test("Revisiones, configuración y cierre usan operaciones remotas",async()=>{
+  const review=fixture({data:{...base,records:[{...record,status:"Pendiente"}]}});
+  const tree=review.load("src/pages/Reviews.tsx").default();
+  await byTag(tree,"Button").find(n=>n.props.variant==="danger").props.onClick();
+  // Los handlers no bloquean React; esperamos que finalice la promesa lanzada.
+  await Promise.resolve(); assert.equal(review.calls[0][0],"review");
+  const settings=fixture(); await nodes(settings.load("src/pages/Settings.tsx").default()).find(n=>n.type==="form").props.onSubmit({preventDefault(){}});
+  assert.equal(settings.calls[0][0],"settings");
+  const closure=fixture(); nodes(closure.load("src/pages/Closure.tsx").default()).find(n=>n.type?.tag==="Button" && n.props.children?.includes?.("Confirmar cierre mensual"))?.props.onClick();
+  await Promise.resolve(); assert.equal(closure.calls[0][0],"close");
+});
+await test("El hook conectado no lee ni se suscribe al almacenamiento local",()=>{
+  const f=fixture(); assert.equal(f.load("src/app/useAppRecords.ts").useAppRecords(),base.records);
+});
+await test("Un reintento de fichaje conserva el identificador y un fichaje nuevo usa otro",async()=>{
+  let first=true;
+  const f=fixture({states:[{user:{id:"user-a"}},false,false,""],rpc:async()=>{if(first){first=false;throw new Error("Red interrumpida");}return [];}});
+  const tree=f.load("src/app/ConnectedApp.tsx").default();
+  const workspace=nodes(tree).find(n=>n.type?.name==="Workspace");
+  const provider=workspace.type(workspace.props);
+  const api=provider.props.value;
+  const input={kind:"Entrada",institution:"Institución real",reason:"Trabajo",notes:""};
+  await assert.rejects(()=>api.punch(input),/Red interrumpida/);
+  await api.punch(input); await api.punch(input);
+  const requests=f.calls.filter(c=>c[0]==="rpc").map(c=>c[2].p_request_id);
+  assert.equal(requests[0],requests[1]); assert.notEqual(requests[1],requests[2]);
+});
+await test("El registro crea una cuenta con nombre y abre la sesión sin pasos adicionales", async () => {
+  let payload, opened;
+  const session = { user: { id: "new-user" } };
+  const f = fixture({ states: ["signup", false, "", ""], auth: { signUp: async input => { payload = input; return { data: { session, user: session.user }, error: null }; } } });
+  const tree = f.load("src/components/AuthForm.tsx").default({ onAuthenticated: next => { opened = next; } });
+  const form = nodes(tree).find(n => n.type === "form");
+  await form.props.onSubmit({ preventDefault() {}, currentTarget: { name: "  Ana Pérez  ", email: " ana@example.com ", password: "temporal123" } });
+  assert.equal(payload.email, "ana@example.com");
+  assert.equal(payload.options.data.display_name, "Ana Pérez");
+  assert.deepEqual(Object.keys(payload.options.data), ["display_name"]);
+  assert.equal(opened, session);
+  assert.equal(nodes(tree).filter(n => n.type === "input" && n.props.type === "password").length, 1);
+});
+await test("El registro no anuncia ingreso inmediato si Supabase requiere correo confirmado", async () => {
+  let opened = false;
+  const f = fixture({ states: ["signup", false, "", ""], auth: { signUp: async () => ({ data: { session: null, user: { id: "new-user", identities: [{}] } }, error: null }) } });
+  const tree = f.load("src/components/AuthForm.tsx").default({ onAuthenticated: () => { opened = true; } });
+  await nodes(tree).find(n => n.type === "form").props.onSubmit({ preventDefault() {}, currentTarget: { name: "Ana", email: "ana@example.com", password: "temporal123" } });
+  assert.equal(opened, false);
+  assert.ok(f.setters.some(([index, value]) => index === 3 && value.includes("Revisá tu correo")));
+});
+await test("Un registro rechazado muestra el error y permite reintentar", async () => {
+  let attempts = 0;
+  const f = fixture({ states: ["signup", false, "", ""], auth: { signUp: async () => { attempts++; return { data: { session: null, user: null }, error: { code: "signup_disabled" } }; } } });
+  const tree = f.load("src/components/AuthForm.tsx").default({ onAuthenticated: () => assert.fail("No debe abrir la sesión") });
+  const event = { preventDefault() {}, currentTarget: { name: "Ana", email: "ana@example.com", password: "temporal123" } };
+  const submit = nodes(tree).find(n => n.type === "form").props.onSubmit;
+  await submit(event); await submit(event);
+  assert.equal(attempts, 2);
+  assert.ok(f.setters.some(([index, value]) => index === 2 && value.includes("registro está deshabilitado")));
+});
+await test("Enviar dos veces el registro mientras espera no crea dos solicitudes", async () => {
+  let resolve, attempts = 0;
+  const response = new Promise(done => { resolve = done; });
+  const f = fixture({ states: ["signup", false, "", ""], auth: { signUp: () => { attempts++; return response; } } });
+  const tree = f.load("src/components/AuthForm.tsx").default({ onAuthenticated() {} });
+  const event = { preventDefault() {}, currentTarget: { name: "Ana", email: "ana@example.com", password: "temporal123" } };
+  const submit = nodes(tree).find(n => n.type === "form").props.onSubmit;
+  const first = submit(event); await submit(event);
+  assert.equal(attempts, 1);
+  resolve({ data: { session: { user: { id: "new-user" } } }, error: null });
+  await first;
+});
+await test("Una cuenta ya existente recibe un mensaje para iniciar sesión", async () => {
+  const f = fixture({ states: ["signup", false, "", ""], auth: { signUp: async () => ({ data: { session: null, user: { identities: [] } }, error: null }) } });
+  const tree = f.load("src/components/AuthForm.tsx").default({ onAuthenticated: () => assert.fail("No debe abrir una sesión") });
+  await nodes(tree).find(n => n.type === "form").props.onSubmit({ preventDefault() {}, currentTarget: { name: "Ana", email: "ana@example.com", password: "temporal123" } });
+  assert.ok(f.setters.some(([index, value]) => index === 2 && value.includes("ya tiene una cuenta")));
+});
+await test("Cambiar el selector de rol guarda al administrador sin abrir otro formulario", async () => {
+  const other = { ...employee, id: "employee-b", profileId: "user-b", name: "Ana Pérez", appRole: "employee", role: "Empleado" };
+  const f = fixture({ data: { ...base, employees: [employee, other] } });
+  const tree = f.load("src/pages/Employees.tsx").default();
+  const selector = byTag(tree, "Select").find(n => n.props["aria-label"] === "Rol de Ana Pérez");
+  assert.equal(selector.props.disabled, false);
+  selector.props.onChange({ target: { value: "admin" } });
+  await Promise.resolve();
+  assert.equal(f.calls[0][0], "employee");
+  assert.equal(f.calls[0][1].id, other.id);
+  assert.equal(f.calls[0][1].appRole, "admin");
+  assert.equal(byTag(tree, "Select").find(n => n.props["aria-label"] === "Rol de Usuario Real").props.disabled, true);
+});
+
+console.log(results.length+" pruebas de integración conectada aprobadas");
