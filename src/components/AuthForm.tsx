@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, UserRound } from "lucide-react";
 
 type Mode = "login" | "signup";
 function authMessage(failure: unknown, mode: Mode) {
@@ -21,10 +22,11 @@ export default function AuthForm({ onAuthenticated }: { onAuthenticated: (sessio
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const lock = useRef(false);
   function changeMode(next: Mode) {
     if (lock.current) return;
-    setMode(next); setError(""); setNotice("");
+    setMode(next); setError(""); setNotice(""); setShowPassword(false);
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,18 +58,19 @@ export default function AuthForm({ onAuthenticated }: { onAuthenticated: (sessio
     } catch (failure) { setError(authMessage(failure, mode)); }
     finally { lock.current = false; setBusy(false); }
   }
-  return <section className="card connected-form">
+  return <section className="auth-form" aria-labelledby="auth-heading">
     <div className="auth-switch" aria-label="Acceso a Fichado Zion ortopedia"><button type="button" aria-pressed={mode === "login"} disabled={busy} className={mode === "login" ? "active" : ""} onClick={() => changeMode("login")}>Iniciar sesión</button><button type="button" aria-pressed={mode === "signup"} disabled={busy} className={mode === "signup" ? "active" : ""} onClick={() => changeMode("signup")}>Crear cuenta</button></div>
-    <h2>{mode === "signup" ? "Creá tu cuenta" : "Iniciar sesión"}</h2>
-    <p>{mode === "signup" ? "Completá tus datos para empezar a registrar tus horas." : "Ingresá con tu correo y contraseña."}</p>
+    <span className="auth-form-eyebrow">{mode === "signup" ? "SUMATE AL EQUIPO" : "BIENVENIDO A ZION"}</span>
+    <h2 id="auth-heading">{mode === "signup" ? "Creá tu cuenta" : "Qué bueno verte"}</h2>
+    <p className="auth-description">{mode === "signup" ? "Completá tus datos para empezar a registrar tu jornada." : "Ingresá a tu espacio de trabajo con tu correo y contraseña."}</p>
     {error && <p className="error-banner" role="alert">{error}</p>}
     {notice && <p className="success-banner" role="status">{notice}</p>}
     <form key={mode} onSubmit={submit}><fieldset disabled={busy}>
-      {mode === "signup" && <label>Nombre y apellido<input className="field" name="name" autoComplete="name" required maxLength={150} /></label>}
-      <label>Correo<input className="field" type="email" name="email" autoComplete={mode === "signup" ? "email" : "username"} required /></label>
-      <label>Contraseña<input className="field" type="password" name="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={mode === "signup" ? 6 : undefined} required /></label>
+      {mode === "signup" && <label>Nombre y apellido<span className="auth-input"><UserRound size={18} aria-hidden="true" /><input name="name" placeholder="Tu nombre completo" autoComplete="name" required maxLength={150} /></span></label>}
+      <label>Correo electrónico<span className="auth-input"><Mail size={18} aria-hidden="true" /><input type="email" name="email" placeholder="nombre@correo.com" autoComplete={mode === "signup" ? "email" : "username"} required /></span></label>
+      <label>Contraseña<span className="auth-input"><LockKeyhole size={18} aria-hidden="true" /><input type={showPassword ? "text" : "password"} name="password" placeholder={mode === "signup" ? "Al menos 6 caracteres" : "Ingresá tu contraseña"} autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={mode === "signup" ? 6 : undefined} required /><button className="auth-password-toggle" type="button" aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></span></label>
       {mode === "signup" && <p className="auth-hint">Al menos 6 caracteres. Tu cuenta se crea como empleado.</p>}
-      <button className="btn btn-primary auth-submit" disabled={busy}>{busy ? (mode === "signup" ? "Creando cuenta…" : "Ingresando…") : (mode === "signup" ? "Crear cuenta" : "Ingresar")}</button>
+      <button className="btn btn-primary auth-submit" disabled={busy}>{busy ? (mode === "signup" ? "Creando cuenta…" : "Ingresando…") : (mode === "signup" ? "Crear cuenta" : "Ingresar")}<ArrowRight size={18} aria-hidden="true" /></button>
     </fieldset></form>
   </section>;
 }

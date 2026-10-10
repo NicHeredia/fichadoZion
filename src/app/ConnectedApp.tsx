@@ -424,19 +424,27 @@ export default function ConnectedApp() {
     )
 
   return (
-    <main className="connected">
-      <div className="page-title">
-        <div>
-          <h1>Fichado Zion ortopedia</h1>
-          <p>Ingresá o creá tu cuenta para acceder a tu panel</p>
+    <main className="auth-page">
+      <div className="auth-layout">
+      <aside className="auth-brand-panel" aria-label="Zion Cirugías e Implantes">
+        <div className="auth-logo-wrap"><img src="/brand/zion-logo.jpg" alt="Zion — Cirugías e Implantes" className="auth-logo" /></div>
+        <div className="auth-brand-copy">
+          <span className="auth-eyebrow">PORTAL DEL EQUIPO</span>
+          <h1>Tu jornada,<br />en un solo lugar.</h1>
+          <p>Registrá tus fichajes, consultá tus horas y seguí tus solicitudes de forma simple.</p>
         </div>
-      </div>
+        <div className="auth-brand-footer"><span className="auth-brand-dot" /> Fichado Zion ortopedia</div>
+      </aside>
+      <div className="auth-form-panel">
       {error && (
         <p className="error-banner" role="alert">
           {error}
         </p>
       )}
       <AuthForm onAuthenticated={authenticated} />
+      <p className="auth-page-footer">Zion · Gestión de jornadas y horas extra</p>
+      </div>
+      </div>
     </main>
   )
 }
