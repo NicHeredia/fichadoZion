@@ -46,7 +46,7 @@ function fixture({ data = base, states = [], rpc = async () => [], location = "/
       if (spec.endsWith("/compensations")) return load("src/lib/compensations.ts");
       if (spec.endsWith("/supabase")) return { isDemoMode:false,supabase:{auth},configurationError:null };
       if (spec.endsWith("/AuthForm")) return { default: fn("AuthForm") };
-      if (spec.endsWith("/zion-logo.jpg")) return { default: "/assets/zion-logo-test.jpg" };
+      if (spec.endsWith("/zion-logo")) return load("src/assets/zion-logo.ts");
       if (spec.endsWith("/ui")) return ui;
       if (spec.endsWith("/StatusBadge")) return { StatusBadge:fn("StatusBadge") };
       if (spec==="@tanstack/react-query") return { useQuery:()=>({data,isFetching:false,isError:false,refetch:async()=>calls.push(["refresh"])}),useQueryClient:()=>({clear(){}}) };

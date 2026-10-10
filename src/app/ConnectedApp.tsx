@@ -21,7 +21,7 @@ import { callRpc, loadRemoteData } from "../services/remote"
 import { router } from "./routes"
 
 import AuthForm from "../components/AuthForm"
-import zionLogo from "../assets/zion-logo.jpg"
+import zionLogo from "../assets/zion-logo"
 
 function Workspace({
   session,
