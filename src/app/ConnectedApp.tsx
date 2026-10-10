@@ -21,6 +21,7 @@ import { callRpc, loadRemoteData } from "../services/remote"
 import { router } from "./routes"
 
 import AuthForm from "../components/AuthForm"
+import zionLogo from "../assets/zion-logo.jpg"
 
 function Workspace({
   session,
@@ -427,7 +428,7 @@ export default function ConnectedApp() {
     <main className="auth-page">
       <div className="auth-layout">
       <aside className="auth-brand-panel" aria-label="Zion Cirugías e Implantes">
-        <div className="auth-logo-wrap"><img src="/brand/zion-logo.jpg" alt="Zion — Cirugías e Implantes" className="auth-logo" /></div>
+        <div className="auth-logo-wrap"><img src={zionLogo} alt="Zion — Cirugías e Implantes" className="auth-logo" /></div>
         <div className="auth-brand-copy">
           <span className="auth-eyebrow">PORTAL DEL EQUIPO</span>
           <h1>Tu jornada,<br />en un solo lugar.</h1>
