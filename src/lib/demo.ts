@@ -15,7 +15,10 @@ export type Employee = {
 };
 
 export type WorkRecord = {
+  beforeMinutes?: number;
+  afterMinutes?: number;
   employeeId?: string;
+  institutionId?: string;
   employeeNumber?: string;
   id: string;
   date: string;

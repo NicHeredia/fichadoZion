@@ -182,3 +182,20 @@ Comprobar en Integrations → Cron que zion-close-missing-exits esté activo
 y tenga ejecuciones exitosas. Pruebas SQL: supabase/tests/automatic_checkout.sql
 (en un proyecto de pruebas; terminan con ROLLBACK).
 Referencia: https://supabase.com/docs/guides/cron/quickstart
+## Activar las mejoras de fichaje, solicitudes y reportes
+
+Para una base existente con las migraciones 001 a 007 aplicadas:
+
+1. Abrir `supabase/migrations/008_daily_workflow.sql`.
+2. Ejecutar el archivo completo una sola vez en SQL Editor del proyecto Supabase.
+3. Recargar la aplicación. Aparecen “Jornada completa” en Fichaje manual y
+   las solicitudes se habilitan en “Mis solicitudes” y “Revisiones”.
+
+La migración incorpora el horario histórico y el desglose a los reportes, registra
+solicitudes auditadas y añade la carga atómica de entrada y salida. Conserva fichajes,
+totales y reglas históricas. No ejecutar `setup.sql` sobre una base existente.
+Las instalaciones nuevas ya incluyen 008 dentro de `setup.sql`.
+
+Validación opcional en una base de pruebas: `supabase/tests/daily_workflow.sql`.
+Usa fechas ficticias de enero de 2003 y revierte sus datos al terminar; si falla,
+ejecutar `ROLLBACK`. Las pruebas locales no confirman la instalación remota.

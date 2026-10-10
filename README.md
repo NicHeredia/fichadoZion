@@ -2,6 +2,42 @@
 
 Sistema de horas extras con React, TypeScript, Vite y Supabase.
 
+## Mejoras de uso diario
+
+En una instalación existente, aplicar una sola vez `supabase/migrations/008_daily_workflow.sql`
+después de 007 y recargar la app. No volver a ejecutar `setup.sql`; ese archivo incluye
+las mejoras únicamente para instalaciones nuevas.
+
+- Historial y Reportes: tocar las horas extra abre el detalle de minutos antes y después
+  de la jornada guardada en ese período. Los días no laborales muestran el período completo.
+  Un registro antiguo sin reglas disponibles lo indica sin atribuirle el horario actual.
+- Registrar fichaje: muestra entradas abiertas del día y ofrece registrar la salida;
+  si hay una sola entrada abierta, precarga su institución. Varias entradas conservan
+  la selección de lugar y las reglas de revisión existentes.
+- Fichaje manual: permite seleccionar movimiento individual o jornada completa,
+  con vista previa. La jornada completa crea ambos movimientos en una sola transacción;
+  si uno falla se revierten los dos. Para completar una jornada existente, usar individual.
+- Revisiones: reúne pendientes, jornadas automáticas con horarios inferidos y solicitudes
+  del equipo. Permite filtrar por empleado, tipo de caso y rango de fechas.
+- Mis solicitudes: un empleado activo propone ambos horarios reales para una jornada
+  propia o pide una nueva si olvidó los dos fichajes. La solicitud no altera las horas
+  ni el saldo. El administrador aprueba o rechaza con motivo; las decisiones se auditan.
+  Una jornada modificada desde el envío no se sobrescribe: debe rechazarse esa solicitud
+  y enviarse otra con los datos actualizados. Los meses cerrados requieren reapertura.
+- Reportes: filtros por institución y fechas, totales calculados, horas reconocidas para
+  compensación y pendientes sin crédito. Las automáticas mantienen su tratamiento actual
+  en el saldo, incluso si incluyen un horario inferido; estos casos se señalan para revisar.
+  Los descansos siguen filtrándose por empleado y fecha, sin atribuirlos a una institución.
+- El cierre mensual bloquea solicitudes pendientes. Correcciones y rechazos protegen
+  el saldo ya comprometido por descansos; los fichajes originales se conservan.
+
+Sin 008, el panel anterior sigue cargando; las solicitudes y la carga completa no se
+habilitan. La migración no cambia jornadas históricas ni sus totales.
+`npm test` verifica también `supabase/tests/daily_workflow.sql` en PostgreSQL local.
+Para comprobar la instalación real, ejecutar ese archivo en SQL Editor sobre una base
+de pruebas con enero de 2003 abierto. Los datos ficticios se revierten con `ROLLBACK`.
+Jornadas por empleado y soporte nocturno quedan fuera de estas mejoras.
+
 ## Modos de funcionamiento
 
 - `VITE_DATA_MODE=demo`: interfaz completa con datos de ejemplo y persistencia local.

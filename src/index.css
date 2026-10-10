@@ -254,3 +254,17 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .auth-submit { width: 100%; justify-content: center; }
 .connected-form .auth-hint { font-size: 12px; }
 .employee-role { min-width: 145px; }
+.overtime-detail { min-width: 70px; }
+.overtime-detail summary { cursor: pointer; color: var(--navy); font-weight: 600; text-decoration: underline dotted; text-underline-offset: 4px; }
+.overtime-detail > div { min-width: 210px; max-width: 280px; margin-top: 10px; padding: 14px; white-space: normal; background: var(--blue-soft); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; }
+.overtime-detail p { margin: 7px 0; }
+.open-entry-banner { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; border-left: 4px solid #219b79; }
+.open-entry-banner p { margin: 6px 0; }
+.calculation-preview { padding: 16px; background: var(--blue-soft); border-radius: 8px; }
+.calculation-preview p { margin: 8px 0 0; }
+.request-link { display: block; margin-top: 8px; font-size: 12px; }
+.request-review { margin-bottom: 18px; }
+.request-review p, .request-review .title-actions { margin: 12px 0; }
+.report-selector > div { flex-wrap: wrap; gap: 14px; }
+@media (max-width: 640px) { .open-entry-banner { align-items: stretch; flex-direction: column; } .report-selector > div { width: 100%; } .report-selector label { width: 100%; } }
+@media print { .request-link { display: none; } .overtime-detail summary { text-decoration: none; list-style: none; } }

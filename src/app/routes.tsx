@@ -8,6 +8,7 @@ export const router = createBrowserRouter([
     { path: "empleados", lazy: async () => ({ Component: (await import("../pages/Employees")).default }) },
     { path: "historial", lazy: async () => ({ Component: (await import("../pages/History")).default }) },
     { path: "revisiones", lazy: async () => ({ Component: (await import("../pages/Reviews")).default }) },
+    { path: "solicitudes", lazy: async () => ({ Component: (await import("../pages/CorrectionRequests")).default }) },
     { path: "reportes", lazy: async () => ({ Component: (await import("../pages/Reports")).default }) },
     { path: "compensaciones", lazy: async () => ({ Component: (await import("../pages/Compensations")).default }) },
     { path: "cierre", lazy: async () => ({ Component: (await import("../pages/Closure")).default }) },
