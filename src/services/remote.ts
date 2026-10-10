@@ -75,6 +75,7 @@ export async function loadRemoteData(): Promise<RemoteData> {
     if (!["PGRST202", "42883"].includes(checkout.error.code)) throw new Error(checkout.error.message)
   } else {
     data.specificCheckoutAvailable = checkout.data?.specificCheckout === true
+    data.adminHistoryAvailable = checkout.data?.adminHistory === true
   }
   return data
 }

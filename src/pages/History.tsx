@@ -15,6 +15,8 @@ import { exportRecords, getStorageError, recordMonth } from "../lib/records"
 import OvertimeDetail from "../components/OvertimeDetail"
 import { Link } from "react-router"
 import { StatusBadge } from "../components/StatusBadge"
+import AdminHistoryEditor from "../components/AdminHistoryEditor"
+import type { WorkRecord } from "../lib/demo"
 
 export function History() {
   const records = useAppRecords()
@@ -33,6 +35,8 @@ export function History() {
   const [institution, setInstitution] = useState("")
 
   const [status, setStatus] = useState("")
+  const [editing, setEditing] = useState<WorkRecord | null>(null)
+  const isAdmin = remote?.profile.role === "admin" && remote.profile.active
 
   const normalized = (value: string) =>
     value
@@ -150,6 +154,7 @@ export function History() {
                 <th>Institución y motivo</th>
                 <th>Horas extra</th>
                 <th>Estado</th>
+                {isAdmin && <th>Acciones</th>}
               </tr>
             </thead>
             <tbody>
@@ -208,11 +213,12 @@ export function History() {
                         </Link>
                       )}
                   </td>
+                  {isAdmin && <td>{remote?.adminHistoryAvailable ? <Button variant="secondary" disabled={!!editing || !!remote.closures[recordMonth(r)]} onClick={() => setEditing(r)}>{remote.closures[recordMonth(r)] ? "Mes cerrado" : "Modificar"}</Button> : <span>Requiere actualización de la base</span>}</td>}
                 </tr>
               ))}
               {!filtered.length && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={isAdmin ? 8 : 7}>
                     No hay movimientos que coincidan con los filtros.
                   </td>
                 </tr>
@@ -225,6 +231,7 @@ export function History() {
           inferidos se indican explícitamente.
         </div>
       </Card>
+      {editing && <AdminHistoryEditor key={editing.id} record={editing} onClose={() => setEditing(null)} />}
       {remote && (
         <Card className="table-card">
           <div className="card-head">

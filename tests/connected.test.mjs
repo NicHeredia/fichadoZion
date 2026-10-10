@@ -18,6 +18,7 @@ function fixture({ data = base, states = [], rpc = async () => [], location = "/
   const fn = tag => Object.assign(() => null, { tag });
   const ui = Object.fromEntries(["Button","Card","Input","Select","PageTitle","Badge"].map(name => [name,fn(name)]));
   const remote = { ...data, manualSession: async input => calls.push(["manualSession",input]), requestCorrection: async input => calls.push(["requestCorrection",input]), resolveCorrection: async (...args) => calls.push(["resolveCorrection",...args]), manualPunch: async input => calls.push(["manualPunch",input]), createCompensation: async input => calls.push(["compensation",input]), changeCompensation: async (...args) => calls.push(["compensationStatus",...args]), punch: async input => calls.push(["punch",input]), review: async (...args) => calls.push(["review",...args]), close: async month => calls.push(["close",month]), reopen: async (...args) => calls.push(["reopen",...args]), saveSettings: async value => calls.push(["settings",value]), saveEmployee: async value => calls.push(["employee",value]), refresh: async () => calls.push(["refresh"]), logout: async () => calls.push(["logout"]) };
+  remote.editHistory = async (...args) => calls.push(["editHistory", ...args]);
   const forbid = () => { throw new Error("Se intentó usar almacenamiento de la demo en modo conectado"); };
   const icons = new Proxy({}, { get: (_target,name) => fn(String(name)) });
   const react = {
@@ -43,6 +44,7 @@ function fixture({ data = base, states = [], rpc = async () => [], location = "/
       if (spec.endsWith("/demo")) return load("src/lib/demo.ts");
       if (spec.endsWith("/work-details")) return load("src/lib/work-details.ts");
       if (spec.endsWith("/OvertimeDetail")) return load("src/components/OvertimeDetail.tsx");
+      if (spec.endsWith("/AdminHistoryEditor")) return load("src/components/AdminHistoryEditor.tsx");
       if (spec.endsWith("/compensations")) return load("src/lib/compensations.ts");
       if (spec.endsWith("/supabase")) return { isDemoMode:false,supabase:{auth},configurationError:null };
       if (spec.endsWith("/AuthForm")) return { default: fn("AuthForm") };
@@ -389,5 +391,37 @@ await test("Sin la migración de cierre no se usa la ruta anterior para salir",a
   const f=fixture({states:[{user:{id:"user-a"}},false,false,""]}); const tree=f.load("src/app/ConnectedApp.tsx").default(); const workspace=nodes(tree).find(n=>n.type?.name==="Workspace"); const api=workspace.type(workspace.props).props.value;
   await assert.rejects(()=>api.punch({kind:"Salida",institution:"Institución real",reason:"Fin",notes:"",confirmWithoutEntry:true}),/Falta habilitar/);
   assert.equal(f.calls.length,0);
+});
+await test("Historial habilita modificar aceptados y bloquea meses cerrados",async()=>{
+  const accepted={...record,status:"Aprobado",institutionId:"place-a"};
+  const f=fixture({data:{...base,adminHistoryAvailable:true,records:[accepted]}});
+  const tree=f.load("src/pages/History.tsx").default();
+  const edit=byTag(tree,"Button").find(n=>n.props.children==="Modificar");assert.ok(edit);assert.equal(edit.props.disabled,false);
+  edit.props.onClick();assert.equal(f.setters.find(([index])=>index===3)[1],accepted);
+  const closed=fixture({data:{...base,adminHistoryAvailable:true,records:[accepted],closures:{"2026-10":{}}}});
+  const closedTree=closed.load("src/pages/History.tsx").default();
+  assert.equal(byTag(closedTree,"Button").find(n=>n.props.children==="Mes cerrado").props.disabled,true);
+});
+await test("Empleado no recibe acciones administrativas del historial",async()=>{
+  const f=fixture({data:{...base,adminHistoryAvailable:true,profile:{...base.profile,role:"employee"}}});
+  const tree=f.load("src/pages/History.tsx").default();
+  assert.equal(byTag(tree,"Button").some(n=>n.props.children==="Modificar"),false);
+  assert.equal(f.load("src/components/AdminHistoryEditor.tsx").default({record,onClose(){}}),null);
+});
+await test("Desestimación desde editor exige motivo y conserva la institución",async()=>{
+  const accepted={...record,status:"Aprobado",institutionId:"place-a"};
+  const f=fixture({data:{...base,adminHistoryAvailable:true},states:["rejected","18:00","21:00","place-b",true,"Duplicado",false,""]});
+  let closed=false;const tree=f.load("src/components/AdminHistoryEditor.tsx").default({record:accepted,onClose(){closed=true;}});
+  await nodes(tree).find(n=>n.type==="form").props.onSubmit({preventDefault(){}});
+  assert.equal(closed,true);assert.equal(f.calls[0][0],"editHistory");assert.equal(f.calls[0][2].institutionId,"place-a");assert.equal(f.calls[0][2].institutionOnly,false);
+  const empty=fixture({data:{...base,adminHistoryAvailable:true},states:["rejected","18:00","21:00","place-a",false,"",false,""]});
+  const emptyTree=empty.load("src/components/AdminHistoryEditor.tsx").default({record:accepted,onClose(){assert.fail();}});
+  await nodes(emptyTree).find(n=>n.type==="form").props.onSubmit({preventDefault(){}});assert.equal(empty.calls.length,0);
+});
+await test("Edición administrativa envía snapshot y horarios de la corrección",async()=>{
+  const f=fixture({data:{...base,adminHistoryAvailable:true},states:[{user:{id:"user-a"}},false,false,""]});
+  const tree=f.load("src/app/ConnectedApp.tsx").default();const w=nodes(tree).find(n=>n.type?.name==="Workspace");const api=w.type(w.props).props.value;
+  await api.editHistory(record,{action:"corrected",entry:"18:00",exit:"20:00",institutionId:"place-a",institutionOnly:false,notes:" Ajuste verificado "});
+  const call=f.calls.find(c=>c[0]==="rpc");assert.equal(call[1],"admin_edit_history");assert.equal(call[2].p_expected,record);assert.equal(call[2].p_notes,"Ajuste verificado");assert.equal(call[2].p_exit,"20:00");
 });
 console.log(results.length+" pruebas de integración conectada aprobadas");

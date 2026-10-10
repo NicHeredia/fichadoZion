@@ -216,6 +216,17 @@ function Workspace({
       })
     },
 
+    async editHistory(record, input) {
+      if (!data.adminHistoryAvailable || data.profile.role !== "admin" || !data.profile.active) throw new Error("La edición administrativa no está habilitada.")
+      await mutate("admin_edit_history", {
+        p_id: record.id, p_expected: record, p_status: input.action,
+        p_institution: input.institutionId || null,
+        p_entry: input.institutionOnly || input.action === "rejected" ? null : input.entry || null,
+        p_exit: input.institutionOnly || input.action === "rejected" ? null : input.exit || null,
+        p_institution_only: input.institutionOnly, p_notes: input.notes.trim(),
+      })
+    },
+
     async review(id, status, entry, exit, notes) {
       await mutate("admin_review_session", {
         p_id: id,

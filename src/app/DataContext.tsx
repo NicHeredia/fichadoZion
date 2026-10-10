@@ -72,6 +72,7 @@ export type RemoteData = {
 
   improvementsAvailable?: boolean
   specificCheckoutAvailable?: boolean
+  adminHistoryAvailable?: boolean
 
   correctionRequests?: CorrectionRequest[]
 }
@@ -106,6 +107,8 @@ export type RemoteContextValue = RemoteData & {
     exit?: string,
     notes?: string,
   ) => Promise<void>
+
+  editHistory: (record: WorkRecord, input: { action: "corrected" | "rejected"; institutionId: string; entry: string; exit: string; institutionOnly: boolean; notes: string }) => Promise<void>
 
   saveSettings: (settings: SettingsData) => Promise<void>
 

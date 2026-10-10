@@ -302,6 +302,12 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 }
 @media (max-width: 380px) { .auth-page { padding: 12px; } .auth-form-panel { padding: 26px 20px; } }
 .employee-role { min-width: 145px; }
+.history-editor { padding: 24px; margin: 20px 0; }
+.history-editor h2 { margin-top: 0; font-size: 18px; }
+.history-editor p { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.history-editor label { display: grid; gap: 8px; font-size: 13px; }
+.history-editor .checkbox-label { display: flex; margin: 18px 0; }
+.history-editor .title-actions { margin-top: 20px; }
 .overtime-detail { min-width: 70px; }
 .overtime-detail summary { cursor: pointer; color: var(--navy); font-weight: 600; text-decoration: underline dotted; text-underline-offset: 4px; }
 .overtime-detail > div { min-width: 210px; max-width: 280px; margin-top: 10px; padding: 14px; white-space: normal; background: var(--blue-soft); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; }

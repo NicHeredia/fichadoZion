@@ -217,3 +217,18 @@ en auditoría. El servidor bloquea solicitudes desactualizadas y meses cerrados.
 
 `npm test` valida `supabase/tests/specific_checkout.sql` en una base local aislada.
 Estas pruebas no aplican la migración al proyecto remoto.
+
+## Edición administrativa desde Historial
+
+Después de 009, ejecutar completo `supabase/migrations/010_admin_history.sql`
+una sola vez en SQL Editor y recargar la aplicación. No repetir `setup.sql`.
+
+En Historial, los administradores activos pueden modificar cualquier jornada,
+incluidas las aceptadas, corregidas y rechazadas. “Modificar” permite corregir
+horarios y/o institución o desestimar con motivo obligatorio. Cambiar solo la
+institución conserva horarios y estado. Corregir los horarios de un rechazado
+lo restablece como Corregido. Los fichajes originales se conservan y se audita
+cada cambio. Meses cerrados, cambios desactualizados, superposiciones y saldo
+insuficiente para descansos reservados o realizados bloquean la operación.
+
+Validación local: `supabase/tests/admin_history.sql` se ejecuta con `npm test`.
