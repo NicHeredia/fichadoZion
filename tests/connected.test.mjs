@@ -326,4 +326,67 @@ await test("Los reintentos de jornada completa y solicitud conservan sus identif
     const ids=f.calls.filter(c=>c[0]==="rpc").map(c=>c[2][key]); assert.equal(ids[0],ids[1]); assert.notEqual(ids[1],ids[2]);
   }
 });
+await test("La salida conserva el lugar de la entrada aunque se manipule el selector",async()=>{
+  const data={...base,specificCheckoutAvailable:true,records:[{...record,exit:undefined,status:"Pendiente",institutionId:"place-a"}]};
+  const f=fixture({data,states:[false,new Date(),"Salida",new Date(),"Otro lugar","","Fin","","","",record.id,false]});
+  const tree=f.load("src/pages/Register.tsx").default();
+  assert.ok(JSON.stringify(tree).includes("Vas a cerrar tu entrada de las"));
+  assert.equal(byTag(tree,"Select").length,0);
+  await nodes(tree).find(n=>n.type==="form").props.onSubmit({preventDefault(){}});
+  assert.equal(f.calls[0][1].institution,"Institución real"); assert.equal(f.calls[0][1].targetId,record.id); assert.equal(f.calls[0][1].confirmWithoutEntry,false);
+});
+await test("Varias entradas requieren elegir cuál cerrar por identificador",async()=>{
+  const data={...base,specificCheckoutAvailable:true,records:[{...record,exit:undefined,status:"Pendiente"},{...record,id:"second",entry:"19:00",exit:undefined,status:"Pendiente"}]};
+  const f=fixture({data,states:[false,new Date(),"Salida",new Date(),"Institución real","","Fin","","","","",false]});
+  const tree=f.load("src/pages/Register.tsx").default();
+  const select=byTag(tree,"Select").find(n=>n.props["aria-label"]==="Entrada a cerrar"); assert.ok(select);
+  select.props.onChange({target:{value:"second"}}); assert.ok(f.setters.some(([index,value])=>index===10 && value==="second"));
+  await nodes(tree).find(n=>n.type==="form").props.onSubmit({preventDefault(){}}); assert.equal(f.calls.length,0);
+  assert.ok(f.setters.some(([,value])=>String(value).includes("Elegí la entrada")));
+});
+await test("Salida por urgencia sin entrada explica la inferencia y pide confirmación",async()=>{
+  const data={...base,specificCheckoutAvailable:true,records:[]};
+  for (const confirmed of [false,true]) {
+    const f=fixture({data,states:[false,new Date(),"Salida",new Date(),"Institución real","","Urgencia","","","","",confirmed]});
+    const tree=f.load("src/pages/Register.tsx").default();
+    const text=JSON.stringify(tree); assert.ok(text.includes("urgencia u otro motivo")); assert.ok(text.includes("entrada habitual")); assert.ok(!text.includes("olvidé registrar"));
+    await nodes(tree).find(n=>n.type==="form").props.onSubmit({preventDefault(){}});
+    assert.equal(f.calls.length,confirmed ? 1 : 0); if(confirmed) {assert.equal(f.calls[0][1].targetId,null);assert.equal(f.calls[0][1].confirmWithoutEntry,true);}
+  }
+});
+await test("Un formulario desactualizado no convierte una entrada cerrada en salida sola",async()=>{
+  const f=fixture({data:{...base,specificCheckoutAvailable:true,records:[]},states:[false,new Date(),"Salida",new Date(),"Institución real","","Fin","","","",record.id,true]});
+  const tree=f.load("src/pages/Register.tsx").default();
+  await nodes(tree).find(n=>n.type==="form").props.onSubmit({preventDefault(){}}); assert.equal(f.calls.length,0);
+  assert.ok(f.setters.some(([,value])=>String(value).includes("ya no está abierta")));
+});
+await test("El empleado puede pedir solo corregir el lugar de una jornada abierta",async()=>{
+  const data={...base,improvementsAvailable:true,specificCheckoutAvailable:true,institutions:[...base.institutions,{id:"place-b",name:"Lugar correcto"}],records:[{...record,institutionId:"place-a",exit:undefined,status:"Pendiente"}]};
+  const f=fixture({data,states:[record.id,"2026-10-08","place-b","","","Elegí mal el lugar","","",false,true]});
+  const tree=f.load("src/pages/CorrectionRequests.tsx").default();
+  assert.equal(byTag(tree,"Input").filter(n=>n.props.type==="time").length,0);
+  assert.equal(byTag(tree,"Select")[1].props.disabled,false);
+  await nodes(tree).find(n=>n.type==="form").props.onSubmit({preventDefault(){}});
+  assert.equal(f.calls[0][1].institutionOnly,true); assert.equal(f.calls[0][1].institutionId,"place-b"); assert.equal(f.calls[0][1].sessionId,record.id);
+});
+await test("El cierre conectado envía el objetivo y conserva el ID al reintentar",async()=>{
+  let first=true; const data={...base,specificCheckoutAvailable:true,records:[{...record,institutionId:"place-a",exit:undefined,status:"Pendiente"}]};
+  const f=fixture({data,states:[{user:{id:"user-a"}},false,false,""],rpc:async()=>{if(first){first=false;throw new Error("Red interrumpida");}return [];}});
+  const tree=f.load("src/app/ConnectedApp.tsx").default(); const workspace=nodes(tree).find(n=>n.type?.name==="Workspace"); const api=workspace.type(workspace.props).props.value;
+  const input={kind:"Salida",institution:"Institución real",targetId:record.id,confirmWithoutEntry:false,reason:"Fin",notes:""};
+  await assert.rejects(()=>api.punch(input),/Red interrumpida/); await api.punch(input);
+  const requests=f.calls.filter(c=>c[0]==="rpc"); assert.equal(requests[0][1],"register_time_event_v2");assert.equal(requests[0][2].p_target,record.id);assert.equal(requests[0][2].p_confirm_without_entry,false);assert.equal(requests[0][2].p_request_id,requests[1][2].p_request_id);
+  await assert.rejects(()=>api.punch({...input,institution:"Otro lugar"}),/coincidir/);
+});
+await test("La corrección solo del lugar envía horarios nulos al servidor",async()=>{
+  const f=fixture({data:{...base,specificCheckoutAvailable:true},states:[{user:{id:"user-a"}},false,false,""]});
+  const tree=f.load("src/app/ConnectedApp.tsx").default(); const workspace=nodes(tree).find(n=>n.type?.name==="Workspace"); const api=workspace.type(workspace.props).props.value;
+  await api.requestCorrection({sessionId:record.id,institutionId:"place-b",date:"2026-10-08",entry:"",exit:"",institutionOnly:true,reason:"Lugar incorrecto"});
+  const request=f.calls.find(c=>c[0]==="rpc");assert.equal(request[1],"request_session_correction_v2");assert.equal(request[2].p_institution_only,true);assert.equal(request[2].p_entry,null);assert.equal(request[2].p_exit,null);
+});
+await test("Sin la migración de cierre no se usa la ruta anterior para salir",async()=>{
+  const f=fixture({states:[{user:{id:"user-a"}},false,false,""]}); const tree=f.load("src/app/ConnectedApp.tsx").default(); const workspace=nodes(tree).find(n=>n.type?.name==="Workspace"); const api=workspace.type(workspace.props).props.value;
+  await assert.rejects(()=>api.punch({kind:"Salida",institution:"Institución real",reason:"Fin",notes:"",confirmWithoutEntry:true}),/Falta habilitar/);
+  assert.equal(f.calls.length,0);
+});
 console.log(results.length+" pruebas de integración conectada aprobadas");

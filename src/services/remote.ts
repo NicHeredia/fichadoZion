@@ -70,5 +70,11 @@ export async function loadRemoteData(): Promise<RemoteData> {
     data.correctionRequests = improvements.data
   }
 
+  const checkout = await supabase!.rpc("get_checkout_capabilities")
+  if (checkout.error) {
+    if (!["PGRST202", "42883"].includes(checkout.error.code)) throw new Error(checkout.error.message)
+  } else {
+    data.specificCheckoutAvailable = checkout.data?.specificCheckout === true
+  }
   return data
 }

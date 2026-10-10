@@ -54,19 +54,22 @@ export async function runTests() {
     const { records, storage } = fixture();
     const first = records.registerPunch({ kind: "Entrada", institution: "Lugar propio", reason: "Inicio", notes: "Nota entrada", capturedAt: new Date("2026-10-08T21:00:00Z") });
     assert.equal(first.status, "Pendiente"); assert.equal(first.minutes, 0);
-    const second = records.registerPunch({ kind: "Salida", institution: "Lugar propio", reason: "Fin", notes: "Nota salida", capturedAt: new Date("2026-10-09T00:00:00Z") });
+    const second = records.registerPunch({ kind: "Salida", institution: "Lugar propio", targetId: first.id, reason: "Fin", notes: "Nota salida", capturedAt: new Date("2026-10-09T00:00:00Z") });
     assert.equal(second.id, first.id); assert.equal(second.minutes, 180); assert.equal(second.entry, "18:00"); assert.equal(second.exit, "21:00");
     assert.equal(second.notes, "Nota entrada / Nota salida");
     assert.equal(records.getRecords().filter(r => r.id === first.id).length, 1);
     const reloaded = fixture({ "horaclara-records-v1": storage.get("horaclara-records-v1") });
     assert.equal(reloaded.records.getRecords()[0].id, first.id);
   });
-  test("No se emparejan movimientos de distinto lugar ni de otro día", () => {
+  test("No se puede eludir una entrada abierta eligiendo otra institución", () => {
     const { records } = fixture();
-    records.registerPunch({ kind: "Entrada", institution: "A", reason: "Inicio", notes: "", capturedAt: new Date("2026-10-08T21:00:00Z") });
-    const otherPlace = records.registerPunch({ kind: "Salida", institution: "B", reason: "Fin", notes: "", capturedAt: new Date("2026-10-08T22:00:00Z") });
-    assert.equal(otherPlace.inferredEntry, true);
-    const nextDay = records.registerPunch({ kind: "Salida", institution: "A", reason: "Fin", notes: "", capturedAt: new Date("2026-10-09T05:00:00Z") });
+    const first = records.registerPunch({ kind: "Entrada", institution: "A", reason: "Inicio", notes: "", capturedAt: new Date("2026-10-08T21:00:00Z") });
+    const count = records.getRecords().length;
+    assert.throws(() => records.registerPunch({ kind: "Salida", institution: "B", targetId: first.id, reason: "Fin", notes: "", capturedAt: new Date("2026-10-08T22:00:00Z") }), /institución/);
+    assert.throws(() => records.registerPunch({ kind: "Salida", institution: "B", confirmWithoutEntry: true, reason: "Urgencia", notes: "", capturedAt: new Date("2026-10-08T22:00:00Z") }), /Elegí la entrada/);
+    assert.equal(records.getRecords().length, count);
+    assert.throws(() => records.registerPunch({ kind: "Salida", institution: "A", targetId: first.id, reason: "Fin", notes: "", capturedAt: new Date("2026-10-09T05:00:00Z") }), /ya no está abierta/);
+    const nextDay = records.registerPunch({ kind: "Salida", institution: "A", confirmWithoutEntry: true, reason: "Fin", notes: "", capturedAt: new Date("2026-10-09T05:00:00Z") });
     assert.equal(nextDay.status, "Pendiente"); assert.equal(nextDay.minutes, 0);
   });
   test("Duplicados recientes y errores de almacenamiento no anuncian éxito", () => {
@@ -103,8 +106,8 @@ export async function runTests() {
   test("Feriados y jornada configurable se aplican a registros nuevos", () => {
     const { records, settings } = fixture();
     settings.saveSettings({ ...settings.defaultSettings, holidays: ["2026-10-08"] });
-    records.registerPunch({ kind: "Entrada", institution: "A", reason: "Inicio", notes: "", capturedAt: new Date("2026-10-08T12:00:00Z") });
-    const result = records.registerPunch({ kind: "Salida", institution: "A", reason: "Fin", notes: "", capturedAt: new Date("2026-10-08T16:00:00Z") });
+    const entry = records.registerPunch({ kind: "Entrada", institution: "A", reason: "Inicio", notes: "", capturedAt: new Date("2026-10-08T12:00:00Z") });
+    const result = records.registerPunch({ kind: "Salida", institution: "A", targetId: entry.id, reason: "Fin", notes: "", capturedAt: new Date("2026-10-08T16:00:00Z") });
     assert.equal(result.minutes, 240);
     assert.throws(() => settings.saveSettings({ ...settings.defaultSettings, startsAt: "18:00", endsAt: "08:00" }));
     assert.throws(() => settings.saveSettings({ ...settings.defaultSettings, holidays: ["2026-02-30"] }));
@@ -142,6 +145,24 @@ export async function runTests() {
     const ambiguous = fixture().records;
     punch(ambiguous, "2026-10-08", "06:00"); punch(ambiguous, "2026-10-08", "07:00");
     assert.equal(ambiguous.finalizeOpenRecords(new Date("2026-10-09T03:00:00Z")), 0);
+  });
+  test("Salida por urgencia sin entrada usa el inicio habitual inferido", () => {
+    const { records } = fixture();
+    const input = { kind: "Salida", institution: "A", reason: "Urgencia", notes: "", capturedAt: new Date("2026-10-08T23:45:00Z") };
+    assert.throws(() => records.registerPunch(input), /Confirmá/);
+    const r = records.registerPunch({ ...input, confirmWithoutEntry: true });
+    assert.equal(r.entry,"08:00"); assert.equal(r.exit,"20:45"); assert.equal(r.inferredEntry,true); assert.equal(r.minutes,225); assert.equal(r.status,"Automático");
+  });
+  test("Varias entradas requieren elegir una y respetan la jornada original", () => {
+    const { records, settings } = fixture();
+    const first = records.registerPunch({ kind: "Entrada", institution: "A", reason: "Inicio", notes: "", capturedAt: new Date("2026-10-08T09:00:00Z") });
+    const second = records.registerPunch({ kind: "Entrada", institution: "A", reason: "Otro inicio", notes: "", capturedAt: new Date("2026-10-08T10:00:00Z") });
+    settings.saveSettings({ ...settings.getSettings(), startsAt: "09:00", endsAt: "18:00" });
+    const input = { kind: "Salida", institution: "A", reason: "Fin", notes: "", capturedAt: new Date("2026-10-08T23:00:00Z") };
+    assert.throws(() => records.registerPunch(input), /Elegí/);
+    const closed = records.registerPunch({ ...input, targetId: second.id });
+    assert.equal(closed.id,second.id); assert.equal(closed.minutes,240); assert.equal(closed.scheduleEnd,"17:00");
+    assert.equal(records.getRecords().find(r => r.id === first.id).exit,undefined);
   });
   return results;
 }

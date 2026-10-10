@@ -5,20 +5,24 @@ Sistema de horas extras con React, TypeScript, Vite y Supabase.
 ## Mejoras de uso diario
 
 En una instalación existente, aplicar una sola vez `supabase/migrations/008_daily_workflow.sql`
-después de 007 y recargar la app. No volver a ejecutar `setup.sql`; ese archivo incluye
+después de 007, luego `supabase/migrations/009_specific_checkout.sql` y recargar la app. No volver a ejecutar `setup.sql`; ese archivo incluye
 las mejoras únicamente para instalaciones nuevas.
 
 - Historial y Reportes: tocar las horas extra abre el detalle de minutos antes y después
   de la jornada guardada en ese período. Los días no laborales muestran el período completo.
   Un registro antiguo sin reglas disponibles lo indica sin atribuirle el horario actual.
 - Registrar fichaje: muestra entradas abiertas del día y ofrece registrar la salida;
-  si hay una sola entrada abierta, precarga su institución. Varias entradas conservan
-  la selección de lugar y las reglas de revisión existentes.
+  si hay una sola entrada abierta, fija su institución. Con varias entradas, el empleado
+  elige cuál cerrar. El servidor valida la jornada y evita salidas en otra institución.
+  Sin entrada abierta, pide confirmar la salida: en días laborales usa la entrada habitual
+  marcada como inferida, también para urgencias. Si no puede inferirla, queda pendiente.
 - Fichaje manual: permite seleccionar movimiento individual o jornada completa,
   con vista previa. La jornada completa crea ambos movimientos en una sola transacción;
   si uno falla se revierten los dos. Para completar una jornada existente, usar individual.
 - Revisiones: reúne pendientes, jornadas automáticas con horarios inferidos y solicitudes
   del equipo. Permite filtrar por empleado, tipo de caso y rango de fechas.
+  Las solicitudes también permiten corregir solo la institución de una jornada abierta
+  o completa, conservando horarios y fichajes originales hasta la aprobación administrativa.
 - Mis solicitudes: un empleado activo propone ambos horarios reales para una jornada
   propia o pide una nueva si olvidó los dos fichajes. La solicitud no altera las horas
   ni el saldo. El administrador aprueba o rechaza con motivo; las decisiones se auditan.
@@ -33,6 +37,7 @@ las mejoras únicamente para instalaciones nuevas.
 
 Sin 008, el panel anterior sigue cargando; las solicitudes y la carga completa no se
 habilitan. La migración no cambia jornadas históricas ni sus totales.
+Sin 009, las salidas quedan deshabilitadas hasta actualizar la base para evitar cierres ambiguos.
 `npm test` verifica también `supabase/tests/daily_workflow.sql` en PostgreSQL local.
 Para comprobar la instalación real, ejecutar ese archivo en SQL Editor sobre una base
 de pruebas con enero de 2003 abierto. Los datos ficticios se revierten con `ROLLBACK`.

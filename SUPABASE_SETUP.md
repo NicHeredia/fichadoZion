@@ -199,3 +199,21 @@ Las instalaciones nuevas ya incluyen 008 dentro de `setup.sql`.
 Validación opcional en una base de pruebas: `supabase/tests/daily_workflow.sql`.
 Usa fechas ficticias de enero de 2003 y revierte sus datos al terminar; si falla,
 ejecutar `ROLLBACK`. Las pruebas locales no confirman la instalación remota.
+
+## Activar salidas asociadas y correcciones de institución
+
+Con 001 a 008 instaladas, ejecutar completo una sola vez
+`supabase/migrations/009_specific_checkout.sql` en SQL Editor y recargar la app.
+No ejecutar `setup.sql` sobre una base existente; las instalaciones nuevas ya incluyen 009.
+
+Cada salida cierra la entrada seleccionada y conserva su institución. Si no hay entrada
+abierta, se exige confirmación para registrar solo la salida. En un día laboral se calcula
+con la entrada habitual marcada como inferida; una urgencia es un motivo válido.
+Los casos que no permiten inferencia permanecen pendientes de revisión.
+
+El empleado puede solicitar corregir solo la institución, incluso con una entrada abierta.
+La aprobación conserva horarios, estado y fichajes originales, y registra la corrección
+en auditoría. El servidor bloquea solicitudes desactualizadas y meses cerrados.
+
+`npm test` valida `supabase/tests/specific_checkout.sql` en una base local aislada.
+Estas pruebas no aplican la migración al proyecto remoto.

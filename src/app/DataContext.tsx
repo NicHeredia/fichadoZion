@@ -5,6 +5,7 @@ import type { Employee, WorkRecord } from "../lib/demo"
 import type { SettingsData } from "../lib/settings"
 
 import type { Closure } from "../lib/records"
+import type { PunchInput } from "../lib/punch"
 
 import type { CompensationData, CompensationInput } from "../lib/compensations"
 
@@ -70,6 +71,7 @@ export type RemoteData = {
   manualPunchAvailable?: boolean
 
   improvementsAvailable?: boolean
+  specificCheckoutAvailable?: boolean
 
   correctionRequests?: CorrectionRequest[]
 }
@@ -83,12 +85,7 @@ export type RemoteContextValue = RemoteData & {
 
   logout: () => Promise<void>
 
-  punch: (input: {
-    kind: "Entrada" | "Salida"
-    institution: string
-    reason: string
-    notes: string
-  }) => Promise<void>
+  punch: (input: PunchInput) => Promise<void>
 
   manualPunch: (input: ManualPunchInput) => Promise<void>
 

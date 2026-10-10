@@ -275,15 +275,14 @@ export default function Reviews() {
           <p>
             Propuesta:{" "}
             <strong>
-              {request.proposed_entry.slice(0, 5)} →{" "}
-              {request.proposed_exit.slice(0, 5)}
+              {request.institution_only ? "Solo cambio de institución" : <>{request.proposed_entry?.slice(0, 5)} → {request.proposed_exit?.slice(0, 5)}</>}
             </strong>
             {!request.session_id && " · Nueva jornada"}
           </p>
           <p>{request.reason}</p>
           {request.session_id && (
             <p>
-              Jornada actual:{" "}
+              Jornada actual: {records.find(r => r.id === request.session_id)?.institution} ·{" "}
               {records.find((r) => r.id === request.session_id)?.entry ||
                 "Sin entrada"}{" "}
               →{" "}
@@ -317,7 +316,7 @@ export default function Reviews() {
               disabled={busy || !resolutionNotes[request.id]?.trim()}
               onClick={() => void resolveRequest(request.id, true)}
             >
-              Aprobar horarios propuestos
+              Aprobar cambios propuestos
             </Button>
           </div>
         </Card>

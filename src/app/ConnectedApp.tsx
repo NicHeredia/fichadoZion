@@ -106,26 +106,32 @@ function Workspace({
     logout,
 
     async punch(input) {
+      const target = input.targetId ? data.records.find(r => r.id === input.targetId && r.employeeId === data.profile.employeeId) : undefined
       const institution = data.institutions.find(
         (i) => i.name === input.institution,
       )
 
-      if (!institution) throw new Error("Elegí una institución habilitada.")
+      const institutionId = target?.institutionId || institution?.id
+      if (!institutionId) throw new Error("Elegí una institución habilitada.")
+      if (input.kind === "Salida" && !data.specificCheckoutAvailable) throw new Error("Falta habilitar el cierre de entradas en tu organización. Contactá al administrador.")
+      if (input.targetId && (!target || target.institution !== input.institution)) throw new Error("La institución debe coincidir con la entrada elegida. Actualizá los datos.")
 
       const payload = {
         p_event_type: input.kind === "Entrada" ? "entry" : "exit",
-        p_institution_id: institution.id,
+        p_institution_id: institutionId,
         p_reason: input.reason.trim(),
         p_notes: input.notes.trim(),
       }
 
-      const signature = JSON.stringify([session.user.id, payload])
+      const checkoutPayload = data.specificCheckoutAvailable ? { p_target: input.targetId || null, p_confirm_without_entry: !!input.confirmWithoutEntry } : {}
+      const signature = JSON.stringify([session.user.id, payload, checkoutPayload])
 
       if (request.current?.signature !== signature)
         request.current = { signature, id: crypto.randomUUID() }
 
-      await callRpc("register_time_event", {
+      await callRpc(data.specificCheckoutAvailable ? "register_time_event_v2" : "register_time_event", {
         ...payload,
+        ...checkoutPayload,
         p_request_id: request.current.id,
       })
 
@@ -185,14 +191,15 @@ function Workspace({
       if (correctionRequest.current?.signature !== signature)
         correctionRequest.current = { signature, id: crypto.randomUUID() }
 
-      await callRpc("request_session_correction", {
+      await callRpc(data.specificCheckoutAvailable ? "request_session_correction_v2" : "request_session_correction", {
         p_id: correctionRequest.current.id,
         p_session: input.sessionId,
         p_institution: input.institutionId,
         p_date: input.date,
-        p_entry: input.entry,
-        p_exit: input.exit,
+        p_entry: input.institutionOnly ? null : input.entry,
+        p_exit: input.institutionOnly ? null : input.exit,
         p_reason: input.reason.trim(),
+        ...(data.specificCheckoutAvailable ? { p_institution_only: !!input.institutionOnly } : {}),
       })
 
       correctionRequest.current = null

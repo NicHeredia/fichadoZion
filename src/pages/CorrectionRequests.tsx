@@ -23,6 +23,7 @@ export default function CorrectionRequests() {
   const [notice, setNotice] = useState("")
   const [busy, setBusy] = useState(false)
   const lock = useRef(false)
+  const [institutionOnly, setInstitutionOnly] = useState(false)
   if (!remote?.improvementsAvailable)
     return (
       <>
@@ -59,10 +60,11 @@ export default function CorrectionRequests() {
         entry,
         exit,
         reason,
+        ...(remote!.specificCheckoutAvailable ? { institutionOnly: !!selected && institutionOnly } : {}),
       })
       setReason("")
       setNotice(
-        "Solicitud enviada. Tus horarios se mantienen hasta que el administrador la apruebe.",
+        "Solicitud enviada. Los datos de la jornada se mantienen hasta que el administrador la apruebe.",
       )
     } catch (failure) {
       setError(
@@ -119,6 +121,7 @@ export default function CorrectionRequests() {
                   onChange={(e) => {
                     const r = ownRecords.find((r) => r.id === e.target.value)
                     setSession(e.target.value)
+                    setInstitutionOnly(false)
                     setDate(r?.isoDate || localDate())
                     setInstitution(
                       r?.institutionId ||
@@ -158,7 +161,7 @@ export default function CorrectionRequests() {
                 Institución
                 <Select
                   required
-                  disabled={!!selected}
+                  disabled={!!selected && !remote.specificCheckoutAvailable}
                   value={institution}
                   onChange={(e) => setInstitution(e.target.value)}
                 >
@@ -172,7 +175,8 @@ export default function CorrectionRequests() {
                   ))}
                 </Select>
               </label>
-              <label>
+              {selected && remote.specificCheckoutAvailable && <label className="full checkbox-label"><input type="checkbox" checked={institutionOnly} onChange={e => setInstitutionOnly(e.target.checked)} /> Solo corregir la institución; conservar los horarios y el estado actuales.</label>}
+              {!institutionOnly && <><label>
                 Entrada real
                 <Input
                   type="time"
@@ -189,7 +193,7 @@ export default function CorrectionRequests() {
                   value={exit}
                   onChange={(e) => setExit(e.target.value)}
                 />
-              </label>
+              </label></>}
               <label className="full">
                 Motivo
                 <textarea
@@ -202,13 +206,12 @@ export default function CorrectionRequests() {
                 />
               </label>
             </div>
-            <p>Ingresá los dos horarios del mismo día, en hora de Argentina.</p>
+            <p>{institutionOnly ? "Podés corregir el lugar incluso si la jornada todavía no tiene salida. El administrador debe aprobarlo." : "Ingresá los dos horarios del mismo día, en hora de Argentina."}</p>
             <Button
               disabled={
                 busy ||
-                !entry ||
-                !exit ||
-                exit <= entry ||
+                (!institutionOnly && (!entry || !exit || exit <= entry)) ||
+                (institutionOnly && (!selected || institution === selected.institutionId)) ||
                 !date ||
                 !institution ||
                 !reason.trim()
@@ -244,8 +247,7 @@ export default function CorrectionRequests() {
                       ?.name || "Institución histórica"}
                   </td>
                   <td>
-                    {r.proposed_entry.slice(0, 5)} →{" "}
-                    {r.proposed_exit.slice(0, 5)}
+                    {r.institution_only ? "Solo institución" : <>{r.proposed_entry?.slice(0, 5)} → {r.proposed_exit?.slice(0, 5)}</>}
                   </td>
                   <td className="description-cell">{r.reason}</td>
                   <td>{statuses[r.status]}</td>

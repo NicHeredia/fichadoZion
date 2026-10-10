@@ -22,11 +22,11 @@ await db.exec(`
     insert into cron.job(jobname,schedule) values(name,schedule) returning jobid;
   $$;
 `);
-for (const name of ["001_initial_schema", "002_secure_registration", "003_admin_dashboard", "004_automatic_checkout", "005_overtime_compensations", "006_admin_manual_punch", "007_fix_settings_save", "008_daily_workflow"]) {
+for (const name of ["001_initial_schema", "002_secure_registration", "003_admin_dashboard", "004_automatic_checkout", "005_overtime_compensations", "006_admin_manual_punch", "007_fix_settings_save", "008_daily_workflow", "009_specific_checkout"]) {
   try { await db.exec(sqlFile(`supabase/migrations/${name}.sql`).replace(/^create extension[^;]*;/gm, "")); }
   catch (error) { console.error(`Migración ${name}: ${error.message}; posición ${error.position || error.internalPosition || "desconocida"}; contexto ${error.where || error.internalQuery || ""}`); await db.close(); process.exit(1); }
 }
-for (const name of ["punch_pairing", "admin", "automatic_checkout", "security", "compensations", "manual_punch", "settings", "daily_workflow"]) {
+for (const name of ["punch_pairing", "admin", "automatic_checkout", "security", "compensations", "manual_punch", "settings", "daily_workflow", "specific_checkout"]) {
   try {
     await db.exec(sqlFile(`supabase/tests/${name}.sql`));
     console.log(`SQL existente aprobado: ${name}`);

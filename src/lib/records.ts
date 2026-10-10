@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { getSettings } from "./settings";
 import { calculateOvertime, initialRecords, type WorkRecord } from "./demo";
+import type { PunchInput } from "./punch";
 
 export const TIME_ZONE = "America/Argentina/Buenos_Aires";
 const KEY = "horaclara-records-v1";
@@ -54,7 +55,7 @@ export function recordMonth(record: WorkRecord) {
   const month = months.indexOf(parts[1]);
   return month >= 0 ? parts[2] + "-" + String(month + 1).padStart(2, "0") : "";
 }
-export function registerPunch(input: { kind: "Entrada" | "Salida"; institution: string; reason: string; notes: string; capturedAt: Date }) {
+export function registerPunch(input: PunchInput & { capturedAt: Date }) {
   if (!["Entrada", "Salida"].includes(input.kind) || !Number.isFinite(input.capturedAt.getTime())) throw new Error("Movimiento o fecha inválidos.");
   input = { ...input, institution: input.institution.trim(), reason: input.reason.trim(), notes: input.notes.trim() };
   if (!input.institution || input.institution.length > 150 || !input.reason || input.reason.length > 1000 || input.notes.length > 2000) throw new Error("Revisá el lugar, motivo y observaciones.");
@@ -65,12 +66,24 @@ export function registerPunch(input: { kind: "Entrada" | "Salida"; institution: 
   const employee = "María González";
   const recent = records.find(r => r.employee === employee && r.lastEventAt);
   if (recent?.lastEventAt && Math.abs(input.capturedAt.getTime() - Date.parse(recent.lastEventAt)) < 60000 && ((input.kind === "Entrada" && !recent.exit) || (input.kind === "Salida" && !!recent.exit))) throw new Error("Ya registraste ese movimiento hace menos de un minuto.");
-  const candidate = input.kind === "Salida" ? records.find(r => r.employee === employee && r.isoDate === isoDate && r.entry && !r.exit && r.status === "Pendiente" && r.institution === input.institution) : undefined;
+  const openEntries = records.filter(r => r.employee === employee && r.isoDate === isoDate && r.entry && !r.exit && r.status === "Pendiente");
+  const candidate = input.kind === "Salida" ? openEntries.find(r => r.id === input.targetId) : undefined;
+  if (input.kind === "Entrada" && (input.targetId || input.confirmWithoutEntry)) throw new Error("La entrada no admite una jornada a cerrar.");
+  if (input.kind === "Salida") {
+    if (input.targetId && !candidate) throw new Error("La entrada elegida ya no está abierta para ese día. Actualizá los datos.");
+    if (candidate && candidate.institution !== input.institution) throw new Error("La institución debe coincidir con la entrada elegida.");
+    if (candidate && (input.confirmWithoutEntry || time <= candidate.entry!)) throw new Error("La salida debe ser posterior a la entrada seleccionada.");
+    if (candidate && records.some(r => r.id !== candidate.id && r.employee === employee && r.isoDate === isoDate && r.status !== "Rechazado" && r.entry && r.exit && candidate.entry! < r.exit && time > r.entry)) throw new Error("La jornada se superpone con otro período. Contactá al administrador.");
+    if (!candidate && openEntries.length) throw new Error("Elegí la entrada que querés cerrar.");
+    if (!candidate && !input.confirmWithoutEntry) throw new Error("Confirmá que querés registrar solo la salida.");
+  }
   const entry = input.kind === "Entrada" ? time : candidate?.entry;
   const exit = input.kind === "Salida" ? time : undefined;
   const day = new Date(isoDate + "T12:00:00Z").getUTCDay();
   const settings = getSettings();
-  const calculation = calculateOvertime(entry, exit, settings.weekdays.includes(day) && !settings.holidays.includes(isoDate), settings);
+  const originalSchedule = { startsAt: candidate?.scheduleStart ?? settings.startsAt, endsAt: candidate?.scheduleEnd ?? settings.endsAt };
+  const workingDay = candidate?.workingDay ?? (settings.weekdays.includes(day) && !settings.holidays.includes(isoDate));
+  const calculation = calculateOvertime(entry, exit, workingDay, originalSchedule);
   const record: WorkRecord = {
     id: candidate?.id ?? crypto.randomUUID(), date: new Intl.DateTimeFormat("es-AR", { timeZone: TIME_ZONE }).format(input.capturedAt), isoDate,
     scheduleStart: candidate?.scheduleStart ?? settings.startsAt,
