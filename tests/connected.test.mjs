@@ -424,4 +424,39 @@ await test("Edición administrativa envía snapshot y horarios de la corrección
   await api.editHistory(record,{action:"corrected",entry:"18:00",exit:"20:00",institutionId:"place-a",institutionOnly:false,notes:" Ajuste verificado "});
   const call=f.calls.find(c=>c[0]==="rpc");assert.equal(call[1],"admin_edit_history");assert.equal(call[2].p_expected,record);assert.equal(call[2].p_notes,"Ajuste verificado");assert.equal(call[2].p_exit,"20:00");
 });
+await test("Eliminar protege la cuenta propia y pide confirmar el legajo", async () => {
+  const other={...employee,id:"employee-b",profileId:"user-b",name:"Prueba",employeeNumber:"B-1",user:"B-1"};
+  const data={...base,employees:[employee,other]};
+  const f=fixture({data});
+  const buttons=byTag(f.load("src/pages/Employees.tsx").default(),"Button").filter(n=>n.props["aria-label"]?.startsWith("Eliminar a "));
+  assert.equal(buttons.length,2);assert.equal(buttons[0].props.disabled,true);assert.equal(buttons[1].props.disabled,false);
+  buttons[1].props.onClick();assert.equal(f.setters.find(([i])=>i===6)[1],other);assert.equal(f.calls.length,0);
+  for (const confirmation of ["incorrecto","B-1"]) {
+    const pending=fixture({data,states:["","",null,"","",false,other,confirmation]});
+    pending.remote.deleteEmployee=async (...args)=>pending.calls.push(["deleteEmployee",...args]);
+    const tree=pending.load("src/pages/Employees.tsx").default();
+    const submit=byTag(tree,"Button").find(n=>n.props.variant==="danger" && !n.props["aria-label"]);
+    assert.equal(submit.props.disabled,confirmation!=="B-1");
+    const form=nodes(tree).find(n=>n.type==="form");
+    await Promise.all([form.props.onSubmit({preventDefault(){}}),form.props.onSubmit({preventDefault(){}})]);
+    assert.equal(pending.calls.length,confirmation==="B-1"?1:0);
+    if (confirmation==="B-1") assert.deepEqual(pending.calls[0],["deleteEmployee",other.id,"B-1"]);
+  }
+});
+await test("La eliminación usa RPC y actualiza los datos conectados",async()=>{
+  const f=fixture({states:[{user:{id:"user-a"}},false,false,""]});
+  const tree=f.load("src/app/ConnectedApp.tsx").default();const w=nodes(tree).find(n=>n.type?.name==="Workspace");const api=w.type(w.props).props.value;
+  await api.deleteEmployee("employee-b","B-1");
+  const call=f.calls.find(c=>c[0]==="rpc");assert.equal(call[1],"admin_delete_employee");
+  assert.equal(call[2].p_id,"employee-b");assert.equal(call[2].p_confirmation,"B-1");
+});
+await test("Un fallo al eliminar conserva la confirmación y muestra el error",async()=>{
+  const other={...employee,id:"employee-b",profileId:"user-b",employeeNumber:"B-1"};
+  const f=fixture({states:["","",null,"","",false,other,"B-1"]});
+  f.remote.deleteEmployee=async()=>{throw new Error("No se pudo borrar");};
+  const tree=f.load("src/pages/Employees.tsx").default();
+  await nodes(tree).find(n=>n.type==="form").props.onSubmit({preventDefault(){}});
+  assert.ok(f.setters.some(([i,v])=>i===3 && v==="No se pudo eliminar el empleado."));
+  assert.ok(!f.setters.some(([i,v])=>i===6 && v===null));
+});
 console.log(results.length+" pruebas de integración conectada aprobadas");

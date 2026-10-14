@@ -1,5 +1,30 @@
 # Conectar y habilitar el panel de Fichado Zion ortopedia
 
+## Eliminar un empleado y todo su historial
+
+Con las migraciones 001 a 010 instaladas, ejecutar completo
+`supabase/migrations/011_delete_employee.sql` en SQL Editor de Supabase y recargar
+la aplicación. Instalarla no borra datos. No repetir `setup.sql`.
+
+En **Empleados → Eliminar**, escribir el legajo exacto y confirmar. Solo un
+administrador activo puede borrar; no puede eliminar su propia cuenta.
+La operación elimina definitivamente la cuenta de acceso, perfil, empleado,
+fichajes, jornadas, cálculos, revisiones, solicitudes, compensaciones,
+notificaciones y horarios. También retira sus registros de todas las versiones
+de cierres mensuales, incluso cerrados. Conserva los cierres y datos del resto
+del equipo y registra la purga en auditoría sin conservar nombre ni legajo.
+Si alguna dependencia impide borrar, se revierte toda la operación.
+
+La eliminación de acceso usa `auth.users` desde una función protegida del servidor;
+no requiere claves privilegiadas en el navegador. Si el empleado eliminado era
+administrador, se conservan los registros que creó para otras personas; las
+referencias obligatorias en compensaciones pasan al administrador que realiza
+la purga. La eliminación no se puede deshacer: exportar antes si se necesita copia.
+
+Las instalaciones nuevas incluyen 011 en `setup.sql`. Validación local:
+`npm test` ejecuta `supabase/tests/delete_employee.sql` en una base aislada,
+sin modificar el proyecto remoto.
+
 ## Corregir el guardado de instituciones y feriados
 
 Si aparece `DELETE requires a WHERE clause`, ejecutar una sola vez

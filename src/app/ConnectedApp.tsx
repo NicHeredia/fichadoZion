@@ -265,6 +265,10 @@ function Workspace({
       })
     },
 
+    async deleteEmployee(id, confirmation) {
+      await mutate("admin_delete_employee", { p_id: id, p_confirmation: confirmation })
+    },
+
     async saveEmployee(employee) {
       await mutate("admin_save_employee", {
         p_id: employee.id,

@@ -118,6 +118,8 @@ export type RemoteContextValue = RemoteData & {
 
   saveEmployee: (employee: AppEmployee) => Promise<void>
 
+  deleteEmployee: (id: string, confirmation: string) => Promise<void>
+
   createCompensation: (input: CompensationInput) => Promise<void>
 
   changeCompensation: (
