@@ -84,7 +84,7 @@ export function Register() {
 
   const submitting = useRef(false)
   const [targetId, setTargetId] = useState("")
-  const [confirmWithoutEntry, setConfirmWithoutEntry] = useState(false)
+
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000)
@@ -144,7 +144,7 @@ export function Register() {
       setInstitution(openEntries[0].institution)
 
     setTargetId(next === "Salida" && openEntries.length === 1 ? openEntries[0].id : "")
-    setConfirmWithoutEntry(false)
+
 
     setCaptured(new Date())
     setError("")
@@ -173,7 +173,7 @@ export function Register() {
       if (kind === "Salida") {
         if (openEntries.length && !selectedEntry) throw new Error("Elegí la entrada que querés cerrar. Actualizá los datos si ya no aparece.")
         if (!openEntries.length && targetId) throw new Error("La entrada elegida ya no está abierta. Actualizá los datos.")
-        if (!openEntries.length && !confirmWithoutEntry) throw new Error("Confirmá que querés registrar solo la salida, por una urgencia u otro motivo.")
+
       }
 
       if (remote)
@@ -183,7 +183,7 @@ export function Register() {
           reason: reason.trim(),
           notes: notes.trim(),
           targetId: kind === "Salida" ? selectedEntry?.id || null : null,
-          confirmWithoutEntry: kind === "Salida" && !openEntries.length && confirmWithoutEntry,
+          confirmWithoutEntry: kind === "Salida" && !openEntries.length,
         })
       else
         registerPunch({
@@ -193,7 +193,7 @@ export function Register() {
           notes: notes.trim(),
           capturedAt: captured,
           targetId: kind === "Salida" ? selectedEntry?.id || null : null,
-          confirmWithoutEntry: kind === "Salida" && !openEntries.length && confirmWithoutEntry,
+          confirmWithoutEntry: kind === "Salida" && !openEntries.length,
         })
 
       setSuccess(
@@ -449,8 +449,8 @@ export function Register() {
               <p>
                 La jornada configurada es de {settings.startsAt} a{" "}
                 {settings.endsAt}. Al salir, elegí la entrada que querés cerrar;
-                se conserva su institución. Si solo registrás la salida por una urgencia
-                u otro motivo, se usa la entrada habitual como inferida en días laborales,
+                se conserva su institución. Si registrás la salida sin una entrada previa,
+                se usa la entrada habitual como inferida en días laborales,
                 cuando el horario lo permite. Al pasar las 00:00 (hora argentina), una
                 entrada sin salida de un día laboral se cierra con la salida
                 habitual y queda marcada como inferida. Entradas posteriores a
@@ -524,7 +524,7 @@ export function Register() {
                   {(openEntries.length > 1 || !selectedEntry) && <label>Entrada a cerrar<Select aria-label="Entrada a cerrar" required value={targetId} onChange={e => { setTargetId(e.target.value); const entry = openEntries.find(r => r.id === e.target.value); if (entry) setInstitution(entry.institution); }}><option value="">Elegí una entrada</option>{openEntries.map(r => <option key={r.id} value={r.id}>{r.entry} · {r.institution}</option>)}</Select></label>}
                   {selectedEntry ? <div className="calculation-preview"><strong>Vas a cerrar tu entrada de las {selectedEntry.entry} en {selectedEntry.institution}.</strong><p>La institución de la salida queda fija.</p>{remote?.specificCheckoutAvailable && <Link to={"/solicitudes?jornada=" + selectedEntry.id}>¿Elegiste mal la institución al entrar? Solicitá una corrección.</Link>}</div> : <p>Elegí una entrada para ver su institución.</p>}
                 </>}
-                {kind === "Salida" && !openEntries.length && <div className="calculation-preview"><strong>No encontramos una entrada abierta para hoy.</strong><p>Podés registrar solo la salida por una urgencia u otro motivo. En un día laboral se usa la entrada habitual ({settings.startsAt}), marcada como inferida, para calcular las horas extra. Si el día o el horario no permiten inferirla, quedará pendiente de revisión.</p><label className="checkbox-label"><input type="checkbox" checked={confirmWithoutEntry} onChange={e => setConfirmWithoutEntry(e.target.checked)} /> Confirmo registrar solo la salida.</label></div>}
+                {kind === "Salida" && !openEntries.length && <div className="calculation-preview"><strong>No se registró una entrada previa para hoy.</strong><p>Se usará la entrada habitual de las {settings.startsAt} como inferida para calcular las horas extra. Si el día o el horario no permiten inferirla, el registro quedará pendiente de revisión.</p></div>}
                 {(kind === "Entrada" || !openEntries.length) && <label>
                   Institución o lugar
                   <Select
@@ -584,7 +584,7 @@ export function Register() {
                     type="submit"
                     disabled={
                       busy ||
-                      (kind === "Salida" && (checkoutBlocked || (openEntries.length > 0 ? !selectedEntry : !confirmWithoutEntry || !!targetId))) ||
+                      (kind === "Salida" && (checkoutBlocked || (openEntries.length > 0 ? !selectedEntry : !!targetId))) ||
                       !(selectedEntry?.institution || institution) ||
                       !reason.trim() ||
                       (!remote &&
