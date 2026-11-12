@@ -87,6 +87,14 @@ export function Reports() {
       (c) => c.employeeId === employee && inPeriod(c.restDate),
     ) ?? []
 
+  const periodAvailable =
+    credited -
+    rests
+      .filter((c) => c.status === "scheduled" || c.status === "completed")
+      .reduce((sum, c) => sum + c.minutes, 0)
+
+  const displayedBalance = month ? periodAvailable : balance?.available
+
   for (const c of remote?.compensationData?.compensations ?? [])
     if (c.employeeId === employee && !months.includes(c.restDate.slice(0, 7)))
       months.push(c.restDate.slice(0, 7))
@@ -275,10 +283,12 @@ export function Reports() {
             <Card>
               <span>Saldo disponible acumulado</span>
               <strong className="text-green">
-                {formatMinutes(balance.available)}
+                {formatMinutes(displayedBalance ?? 0)}
               </strong>
               <small>
-                Todo el historial; descontadas reservas y descansos realizados.
+                {month
+                  ? "Saldo generado en el período, descontadas reservas y descansos realizados."
+                  : "Todo el historial; descontadas reservas y descansos realizados."}
               </small>
             </Card>
           </div>
